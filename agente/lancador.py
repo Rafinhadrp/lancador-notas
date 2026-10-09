@@ -17,6 +17,7 @@ from PIL import Image
 
 from automacao import CAMPOS, PADRAO, Automacao, Parado
 from central import VERSAO, Central, ErroCentral
+from navegador import AutomacaoNavegador, FormularioAusente, Navegador
 
 try:
     import pyautogui
@@ -123,6 +124,24 @@ class Trabalhador(threading.Thread):
         self.central = app.central
         self.fim = threading.Event()
         self.ultimo_batimento = 0
+        self.nav = None  # navegador controlado (modo navegador); só esta thread mexe nele
+
+    def modo_navegador(self):
+        return self.app.config_.ajustes.get("modo") == "navegador"
+
+    def garantir_navegador(self):
+        """Abre a janela do navegador se ainda não estiver aberta. True = pronta."""
+        if self.nav and self.nav.aberto():
+            return True
+        try:
+            if not self.nav:
+                self.nav = Navegador(PASTA_DADOS, log=self.log)
+            self.nav.abrir(self.app.config_.ajustes.get("url_formulario", ""))
+            return True
+        except Exception as e:
+            self.log(f"✖ Não consegui abrir o navegador: {e}")
+            registrar(traceback.format_exc())
+            return False
 
     def ev(self, tipo, **dados):
         self.app.eventos.put((tipo, dados))
@@ -138,6 +157,10 @@ class Trabalhador(threading.Thread):
             pass
         while not self.app.encerrando.is_set() and not self.fim.is_set():
             try:
+                if self.app.pedido_navegador.is_set():
+                    self.app.pedido_navegador.clear()
+                    if self.garantir_navegador() and self.nav:
+                        self.nav.pagina_formulario(self.app.config_.ajustes.get("url_formulario", ""), esperar=0, trazer=True)
                 if time.time() - self.ultimo_batimento > 8:
                     central.batimento(self.app.pausado.is_set())
                     self.ultimo_batimento = time.time()
@@ -145,6 +168,10 @@ class Trabalhador(threading.Thread):
                 if self.app.pausado.is_set() or self.app.calibrando.is_set():
                     time.sleep(0.4)
                     continue
+                if self.modo_navegador() and not (self.nav and self.nav.aberto()):
+                    if not self.garantir_navegador():
+                        time.sleep(10)
+                        continue
                 nota = central.proxima_nota()
                 if not nota:
                     time.sleep(1.2)
@@ -157,16 +184,31 @@ class Trabalhador(threading.Thread):
                 self.log(f"Erro inesperado: {e}")
                 registrar(traceback.format_exc())
                 time.sleep(5)
+        if self.nav:
+            self.nav.fechar()
 
     def processar(self, nota):
         central, cfg = self.central, self.app.config_
         ajustes = cfg.ajustes
         self.ev("lancando", nota=nota)
         self.log(f"▶ {nota['placa']} · R$ {nota['valor']} · {nota['descricao'][:60]}")
-        auto = Automacao(ajustes, central, log=self.log)
+        if self.modo_navegador():
+            auto = AutomacaoNavegador(ajustes, self.nav, log=self.log)
+        else:
+            auto = Automacao(ajustes, central, log=self.log)
         self.app.automacao = auto
         try:
             r = auto.lancar(nota)
+            if self.modo_navegador():
+                cfg.salvar()  # guarda o endereço do formulário
+        except FormularioAusente as e:
+            central.concluir(nota["id"], "pendente", "Esperando a tela de lançamento no PC.")
+            self.app.pausado.set()
+            self.ev("pausado")
+            self.log(f"■ {e} Depois clique em Retomar.")
+            if self.nav:
+                self.nav.pagina_formulario(esperar=0, trazer=True)
+            return
         except (Parado, getattr(pyautogui, "FailSafeException", Parado)):
             central.concluir(nota["id"], "pendente", "Interrompida no PC; volta a lançar quando você retomar.")
             self.app.pausado.set()
@@ -192,7 +234,8 @@ class Trabalhador(threading.Thread):
             self.ev("aguardando", nota=nota, motivo=motivo)
             self.log(f"⚠ {motivo}")
             self.app.pular.clear()
-            auto2 = Automacao(ajustes, central)
+            auto2 = auto if self.modo_navegador() else Automacao(ajustes, central)
+            auto2.parar.clear()
             self.app.automacao = auto2
             salvou = auto2.esperar_salvar(self.app.pular)
             self.app.automacao = None
@@ -262,6 +305,7 @@ class App(ctk.CTk):
         self.pausado = threading.Event()
         self.calibrando = threading.Event()
         self.pular = threading.Event()
+        self.pedido_navegador = threading.Event()
         self.automacao = None
         self.trabalhador = None
         self.ocupado = False
@@ -488,6 +532,8 @@ class App(ctk.CTk):
         self.b_pular = botao(acoes, "Pular esta nota", self.pular.set, "normal")
         self.b_pausar = botao(acoes, "Pausar", self.alternar_pausa, "normal", width=110)
         self.b_pausar.pack(side="right", padx=(8, 0))
+        if self.config_.ajustes.get("modo") == "navegador":
+            botao(acoes, "Abrir navegador", self.pedido_navegador.set, "normal").pack(side="right", padx=(8, 0))
 
         nums = ctk.CTkFrame(p, fg_color="transparent")
         nums.pack(fill="x", padx=32, pady=14)
@@ -500,7 +546,7 @@ class App(ctk.CTk):
                                         text_color=TEXT, font=ctk.CTkFont(family="Consolas" if FONTE == "Segoe UI" else "Courier", size=12))
         self.caixa_log.pack(fill="both", expand=True, padx=32)
         self.caixa_log.configure(state="disabled")
-        rotulo(p, "Para parar na hora: aperte F10 ou jogue o mouse no canto superior esquerdo da tela.", 12, cor=FAINT,
+        rotulo(p, "Para parar na hora: aperte F10" + ("." if self.config_.ajustes.get("modo") == "navegador" else " ou jogue o mouse no canto superior esquerdo da tela."), 12, cor=FAINT,
                anchor="w").pack(fill="x", padx=32, pady=(8, 18))
         self.log("Conectado como " + self.central.perfil.get("nome", "") + ". Aguardando notas.")
 
@@ -733,6 +779,22 @@ class App(ctk.CTk):
         deslizante("pausa_passos", "Pausa entre os passos", "Aumente se o site estiver lento e algum campo ficar vazio.", 0.1, 1.5, 14)
         deslizante("espera_entre_notas", "Espera entre uma nota e outra", "Tempo para o site salvar e limpar o formulário.", 1, 10, 18)
 
+        c0 = cartao(rolagem)
+        c0.pack(fill="x", padx=32, pady=(0, 12))
+        linha0 = ctk.CTkFrame(c0, fg_color="transparent")
+        linha0.pack(fill="x", padx=18, pady=(16, 4))
+        rotulo(linha0, "Como lançar no sistema:", 14, "bold", anchor="w").pack(side="left")
+        self.seg_modo = ctk.CTkSegmentedButton(linha0, values=["Navegador", "Mouse e teclado"], selected_color=ACCENT,
+                                               selected_hover_color=ACCENT_HOVER, unselected_color=SURFACE_2,
+                                               text_color=TEXT, font=fonte(13, "bold"))
+        self.seg_modo.set("Navegador" if a.get("modo") == "navegador" else "Mouse e teclado")
+        self.seg_modo.pack(side="left", padx=12)
+        rotulo(c0, "Navegador: o programa abre uma janela própria do Chrome e preenche pelo código da página, sem calibragem "
+                   "e sem usar o seu mouse. Faça login no Autos 360 nessa janela uma vez e deixe a tela "
+                   "\"Nova Receita e Despesa de Veículo\" aberta nela.\nMouse e teclado: o jeito antigo, pelas posições da Calibragem.",
+               12, cor=FAINT, anchor="w", justify="left", wraplength=640).pack(fill="x", padx=18, pady=(4, 8))
+        botao(c0, "Abrir navegador do Lançador", self.pedido_navegador.set, "normal").pack(anchor="w", padx=18, pady=(0, 16))
+
         c2 = cartao(rolagem)
         c2.pack(fill="x", padx=32, pady=12)
         self.sw_salvar = ctk.BooleanVar(value=bool(a["salvar_automatico"]))
@@ -766,16 +828,24 @@ class App(ctk.CTk):
             a[k] = round(float(var.get()), 2)
         a["salvar_automatico"] = bool(self.sw_salvar.get())
         a["selecao_veiculo"] = "teclado" if self.seg_sel.get() == "Teclado" else "clique"
+        modo_antes = a.get("modo")
+        a["modo"] = "navegador" if self.seg_modo.get() == "Navegador" else "mouse"
         self.config_.salvar()
         self._definir_inicio_windows(bool(self.sw_windows.get()))
         self.aj_aviso.configure(text="✔ Salvo")
-        self.after(2500, lambda: self.aj_aviso.configure(text=""))
+        self.after(2500, lambda: self.aj_aviso.configure(text="") if self.aj_aviso.winfo_exists() else None)
+        if a["modo"] != modo_antes:
+            if a["modo"] == "navegador":
+                self.pedido_navegador.set()
+            self.montar_principal()
+            self.ir("ajustes")
 
     def ajustes_padrao(self):
         for k in ("espera_lista", "pausa_passos", "espera_entre_notas"):
             self.aj_vars[k].set(PADRAO[k])
         self.sw_salvar.set(PADRAO["salvar_automatico"])
         self.seg_sel.set("Clique")
+        self.seg_modo.set("Navegador" if self.config_.ajustes.get("modo") == "navegador" else "Mouse e teclado")
         self.salvar_ajustes()
         self.montar_principal()
         self.ir("ajustes")
@@ -873,7 +943,8 @@ class App(ctk.CTk):
         elif tipo == "lancando":
             self.ocupado = True
             n = d["nota"]
-            self.status(f"Lançando {n['placa']}…", f"R$ {n['valor']} · não mexa no mouse e no teclado", WARN)
+            dica = "pela janela do navegador" if self.config_.ajustes.get("modo") == "navegador" else "não mexa no mouse e no teclado"
+            self.status(f"Lançando {n['placa']}…", f"R$ {n['valor']} · {dica}", WARN)
         elif tipo == "aguardando":
             self.status("Esperando você", d["motivo"], WARN)
             self.b_pular.pack(side="right", padx=(8, 0))

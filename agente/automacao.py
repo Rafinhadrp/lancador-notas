@@ -30,6 +30,8 @@ PADRAO = {
     "espera_entre_notas": 3.0,
     "salvar_automatico": True,
     "selecao_veiculo": "clique",
+    "modo": "mouse",            # "mouse" (posições na tela) ou "navegador" (pelo código da página)
+    "url_formulario": "",       # tela "Nova Receita e Despesa de Veículo" (guardada sozinha no modo navegador)
     "recorte": {"esquerda": -200, "acima": 15, "largura": 750, "altura": 400},
 }
 

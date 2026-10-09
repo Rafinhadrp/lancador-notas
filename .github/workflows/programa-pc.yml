@@ -35,6 +35,7 @@ jobs:
           --add-data "icone.png;."
           --add-data "icone.ico;."
           --collect-all customtkinter
+          --collect-all playwright
           lancador.py
 
       - name: Guardar o .exe

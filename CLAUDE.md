@@ -20,6 +20,7 @@ A equipe fotografa no celular notas de oficinas e autopeças. O Claude lê a not
   - `central.py`: REST do Supabase e login.
   - `automacao.py`: preenchimento com mouse e teclado.
   - O PC consulta a fila a cada ~1,2 s e "pega" a nota com um PATCH condicional (`status=eq.pendente`), para nunca lançar a mesma nota duas vezes.
+- `agente/navegador.py`: modo navegador (Playwright), ver abaixo.
 - `.github/workflows/programa-pc.yml`: gera o `LancadorNotas.exe` (PyInstaller) e publica na release `programa`.
 - Login: o usuário vira o e-mail interno `usuario@lancador.local`. Os usuários são criados só pelo admin, sem cadastro público.
 
@@ -29,8 +30,14 @@ A equipe fotografa no celular notas de oficinas e autopeças. O Claude lê a not
 - Placa: procurada em `infCpl`, `infAdFisco`, `xPed`, `infAdProd` e `obsCont`. Se não achar, a pessoa digita.
 - Alertas: nota de devolução (`finNFe=4` ou natOp com DEVOLUC), não autorizada (`cStat` ≠ 100/150), destinatário diferente da Autoforte (CNPJ 10696802000131).
 
-## Autos 360 (para uma futura automação via Playwright)
-- Usa PrimeReact. Campo Veículo: `input.p-autocomplete-input[name="veiculo"]` (placeholder "Pesquise por placa, chassi, modelo, ano ou cor do Veículo").
+## Modo navegador (agente/navegador.py, Playwright)
+- Ajustes → "Como lançar no sistema": **Navegador** ou **Mouse e teclado** (`ajustes.modo`, padrão `mouse`).
+- Abre uma janela própria do Chrome (ou Edge) com perfil em `%APPDATA%\LancadorNotas\navegador`. A pessoa faz login no Autos 360 nela uma vez.
+- O endereço da tela do formulário fica em `ajustes.url_formulario` (guardado sozinho). Se o formulário ainda tem dados, a página é recarregada antes da próxima nota.
+- Seletores do Autos 360 (PrimeReact): `input[name="veiculo"]` (autocomplete), `input[name="descricao"]`, `input[name="valor"]` (máscara de moeda: digita só os números), `button[aria-label="Salvar"]` (fica `disabled` até o formulário estar completo).
+- Opção da lista: `EFY0980 - Fox - ... - Estoque - 14/04/2026 - Autoforte Veículos`. Escolhe a da placa com a maior data DD/MM/AAAA, sem IA.
+- Confirmação: toast `.p-toast-message-success` / `.p-toast-message-error`, ou formulário limpo. Clique manual em Salvar é detectado por um listener que grava no sessionStorage.
+- Testado só contra uma página que imita o formulário. **Ainda não testado no Autos 360 de verdade.**
 
 ## Regras de negócio (decididas com o usuário)
 - **Descrição**: `DD/MM ITEM 1 + ITEM 2 + ...` (data em DD/MM, sem ano), em maiúsculas e sem acento. Ex.: `10/09 ELRING COLA SILICONE ELRING PRETO 70GR + SINTECH BRONZINA BIELA FT 025 + VOX FILTRO OLEO FT`.
