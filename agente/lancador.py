@@ -793,7 +793,7 @@ class App(ctk.CTk):
                    "e sem usar o seu mouse. Faça login no Autos 360 nessa janela uma vez e deixe a tela "
                    "\"Nova Receita e Despesa de Veículo\" aberta nela.\nMouse e teclado: o jeito antigo, pelas posições da Calibragem.",
                12, cor=FAINT, anchor="w", justify="left", wraplength=640).pack(fill="x", padx=18, pady=(4, 8))
-        botao(c0, "Abrir navegador do Lançador", self.pedido_navegador.set, "normal").pack(anchor="w", padx=18, pady=(0, 16))
+        botao(c0, "Usar o navegador e abrir agora", self.usar_navegador, "primario").pack(anchor="w", padx=18, pady=(0, 16))
 
         c2 = cartao(rolagem)
         c2.pack(fill="x", padx=32, pady=12)
@@ -821,6 +821,12 @@ class App(ctk.CTk):
 
         rotulo(rolagem, f"Central: {self.central.endereco}\nArquivos deste PC: {PASTA_DADOS}", 12, cor=FAINT,
                anchor="w", justify="left").pack(fill="x", padx=32, pady=(24, 24))
+
+    def usar_navegador(self):
+        """Liga o modo navegador (salvando) e abre a janela."""
+        self.seg_modo.set("Navegador")
+        self.salvar_ajustes()
+        self.pedido_navegador.set()
 
     def salvar_ajustes(self):
         a = self.config_.ajustes
