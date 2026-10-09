@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b0f14">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Lançar Notas">
+<title>Lançar Notas</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/assets/favicon.png">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/estilo.css">
+</head>
+<body>
+
+<!-- carregando -->
+<div id="telaCarregando" class="login-tela">
+  <div class="login-caixa" style="text-align:center">
+    <img src="/assets/logo@2x.png" alt="Rafinhadr" class="logo-grande">
+    <p class="muted" id="msgCarregando">Conectando…</p>
+  </div>
+</div>
+
+<!-- login -->
+<div id="telaLogin" class="login-tela hidden">
+  <form class="login-caixa" id="formLogin" autocomplete="on">
+    <img src="/assets/logo@2x.png" alt="Rafinhadr" class="logo-grande">
+    <h1>Lançador de Notas</h1>
+    <p class="sub">Entre com o seu usuário da equipe.</p>
+    <div class="cartao pilha">
+      <label class="campo"><span>Usuário</span>
+        <input class="entrada" name="usuario" autocomplete="username" autocapitalize="none" spellcheck="false" required></label>
+      <label class="campo"><span>Senha</span>
+        <input class="entrada" name="senha" type="password" autocomplete="current-password" required></label>
+      <button class="btn primario bloco" type="submit">Entrar</button>
+      <div id="erroLogin" class="aviso erro hidden"></div>
+    </div>
+    <p class="rodape-marca" id="linkPrimeiro"></p>
+    <p class="rodape-marca">feito por <b>Rafinhadr</b></p>
+  </form>
+</div>
+
+<!-- app -->
+<div id="telaApp" class="hidden com-abas">
+  <header class="topo">
+    <a class="marca" href="/">
+      <img src="/assets/logo@2x.png" alt="Rafinhadr">
+      <span class="titulo">Lançador de Notas<small id="nomeUsuario"></small></span>
+    </a>
+    <span class="espaco"></span>
+    <span class="pilula off" id="pilulaPC" title="Programa do seu computador"><span class="ponto"></span><span>…</span></span>
+    <a class="icone-btn hidden" id="btnAdmin" href="/admin.html" title="Administração"></a>
+    <button class="icone-btn" id="btnSair" title="Sair"></button>
+  </header>
+
+  <!-- aba: lançar -->
+  <main class="pagina" id="abaLancar">
+    <section class="captura">
+      <div class="icone-camera" data-icone="camera"></div>
+      <h2>Fotografe a nota</h2>
+      <p>O Claude lê, você confere e o seu PC lança no sistema.</p>
+      <div class="acoes">
+        <label class="btn primario" for="inputCamera"><span data-icone="camera"></span>Tirar foto</label>
+        <label class="btn" for="inputGaleria"><span data-icone="galeria"></span>Galeria</label>
+      </div>
+      <input id="inputCamera" type="file" accept="image/*" capture="environment">
+      <input id="inputGaleria" type="file" accept="image/*" multiple>
+    </section>
+    <div id="avisoPC"></div>
+    <div id="listaNotas"></div>
+  </main>
+
+  <!-- aba: histórico -->
+  <main class="pagina hidden" id="abaHistorico">
+    <h1>Histórico</h1>
+    <p class="sub">Suas notas e o que o PC já lançou.</p>
+    <div class="resumo">
+      <div class="num"><b id="rLancadas">0</b><span>lançadas hoje</span></div>
+      <div class="num"><b id="rTotal">0,00</b><span>total hoje (R$)</span></div>
+      <div class="num"><b id="rFila">0</b><span>na fila</span></div>
+    </div>
+    <div class="cartao" style="padding:0" id="listaHistorico"></div>
+  </main>
+
+  <div class="barra-envio hidden" id="barraEnvio">
+    <div class="dentro"><button class="btn primario" id="btnEnviar"></button></div>
+  </div>
+
+  <nav class="abas">
+    <button class="ativa" data-aba="abaLancar"><span data-icone="camera"></span>Lançar</button>
+    <button data-aba="abaHistorico"><span data-icone="lista"></span>Histórico</button>
+  </nav>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="/assets/comum.js"></script>
+<script>
+(function () {
+  const $ = (s) => document.querySelector(s);
+  const { ICONES, esc } = App;
+  document.querySelectorAll('[data-icone]').forEach((el) => { el.innerHTML = ICONES[el.dataset.icone]; });
+  $('#btnSair').innerHTML = ICONES.sair;
+  $('#btnAdmin').innerHTML = ICONES.escudo;
+
+  let notas = [];          // notas em conferência: {id, thumb, estado:'lendo'|'pronta'|'falhou', dados, erro, duplicada}
+  let agente = null;
+  let abaAtual = 'abaLancar';
+  let seq = 0;
+
+  // ------------------------------------------------------------ início
+  (async function () {
+    try {
+      const cfg = await App.iniciar();
+      if (App.perfil) return abrirApp();
+      $('#telaCarregando').classList.add('hidden');
+      $('#telaLogin').classList.remove('hidden');
+      if (cfg.precisaPrimeiroAdmin) {
+        $('#linkPrimeiro').innerHTML = 'Primeiro acesso? <a href="/admin.html">Criar o administrador</a>';
+      }
+    } catch (e) {
+      $('#msgCarregando').textContent = e.message;
+    }
+  })();
+
+  $('#formLogin').addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const f = ev.target, btn = f.querySelector('button');
+    $('#erroLogin').classList.add('hidden');
+    btn.disabled = true; btn.innerHTML = '<span class="gira"></span>Entrando…';
+    try {
+      await App.entrar(f.usuario.value, f.senha.value);
+      abrirApp();
+    } catch (e) {
+      $('#erroLogin').textContent = e.message;
+      $('#erroLogin').classList.remove('hidden');
+    } finally {
+      btn.disabled = false; btn.textContent = 'Entrar';
+    }
+  });
+
+  $('#btnSair').onclick = () => App.sair();
+
+  function abrirApp() {
+    $('#telaCarregando').classList.add('hidden');
+    $('#telaLogin').classList.add('hidden');
+    $('#telaApp').classList.remove('hidden');
+    $('#nomeUsuario').textContent = App.perfil.nome;
+    if (App.perfil.admin) $('#btnAdmin').classList.remove('hidden');
+    atualizarPC();
+    setInterval(atualizarPC, 5000);
+    setInterval(() => { if (abaAtual === 'abaHistorico' && !document.hidden) carregarHistorico(); }, 3000);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) atualizarPC(); });
+  }
+
+  // ------------------------------------------------------------ abas
+  document.querySelectorAll('.abas button').forEach((b) => {
+    b.onclick = () => irPara(b.dataset.aba);
+  });
+  function irPara(aba) {
+    abaAtual = aba;
+    document.querySelectorAll('.abas button').forEach((x) => x.classList.toggle('ativa', x.dataset.aba === aba));
+    ['abaLancar', 'abaHistorico'].forEach((id) => $('#' + id).classList.toggle('hidden', id !== aba));
+    atualizarBarra();
+    if (aba === 'abaHistorico') carregarHistorico();
+    window.scrollTo({ top: 0 });
+  }
+
+  // ------------------------------------------------------------ status do PC
+  async function atualizarPC() {
+    if (!App.perfil) return;
+    const { data } = await App.sb.from('agentes').select('*').eq('user_id', App.perfil.id).maybeSingle();
+    agente = data;
+    const est = App.estadoPC(agente);
+    const p = $('#pilulaPC');
+    p.className = `pilula ${est.classe}`;
+    p.lastElementChild.textContent = est.texto;
+    renderAvisoPC();
+  }
+
+  function renderAvisoPC() {
+    const est = App.estadoPC(agente);
+    const el = $('#avisoPC');
+    if (est.classe === 'ok' || !notas.length) { el.innerHTML = ''; return; }
+    const txt = est.classe === 'warn'
+      ? 'O programa do seu PC está pausado. As notas ficam na fila até você retomar.'
+      : 'O programa do seu PC não está aberto. As notas ficam na fila e são lançadas assim que ele abrir.';
+    el.innerHTML = `<div class="aviso warn">${ICONES.alerta}<span>${txt}</span></div>`;
+  }
+
+  // ------------------------------------------------------------ fotos
+  $('#inputCamera').onchange = (e) => { receber([...e.target.files]); e.target.value = ''; };
+  $('#inputGaleria').onchange = (e) => { receber([...e.target.files]); e.target.value = ''; };
+
+  async function receber(arquivos) {
+    if (!arquivos.length) return;
+    const novas = arquivos.map((f) => ({ id: ++seq, arquivo: f, estado: 'lendo', thumb: '' }));
+    notas.push(...novas);
+    render();
+    novas[0] && document.getElementById('n' + novas[0].id)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    await emParalelo(novas, 4, lerNota);
+  }
+
+  async function emParalelo(itens, limite, fn) {
+    const fila = [...itens];
+    const trab = Array.from({ length: Math.min(limite, fila.length) }, async () => {
+      while (fila.length) await fn(fila.shift());
+    });
+    await Promise.all(trab);
+  }
+
+  async function lerNota(n) {
+    try {
+      const img = await carregarImagem(n.arquivo);
+      n.thumb = reduzir(img, 220, 0.7);
+      n.foto = reduzir(img, 1600, 0.85);
+      render();
+      const dados = await App.api('/api/ler', { imagem: n.foto.split(',')[1] });
+      dados.valor = App.normalizarValor(dados.valor);
+      n.dados = dados;
+      n.estado = 'pronta';
+      verificarDuplicada(n);
+    } catch (e) {
+      n.estado = 'falhou';
+      n.erro = e.message;
+    }
+    delete n.arquivo;
+    render();
+  }
+
+  function carregarImagem(arquivo) {
+    return new Promise((ok, falha) => {
+      const url = URL.createObjectURL(arquivo);
+      const img = new Image();
+      img.onload = () => { URL.revokeObjectURL(url); ok(img); };
+      img.onerror = () => falha(new Error('Não consegui abrir essa imagem.'));
+      img.src = url;
+    });
+  }
+
+  // reduz a foto no próprio celular (sobe rápido e cabe no limite do servidor)
+  function reduzir(img, max, qualidade) {
+    const escala = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+    const c = document.createElement('canvas');
+    c.width = Math.round(img.naturalWidth * escala);
+    c.height = Math.round(img.naturalHeight * escala);
+    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+    return c.toDataURL('image/jpeg', qualidade);
+  }
+
+  async function verificarDuplicada(n) {
+    const d = n.dados;
+    if (!d.placa || !d.valor) return;
+    const desde = new Date(Date.now() - 90 * 864e5).toISOString();
+    const { data } = await App.sb.from('notas').select('id, criado_em, status')
+      .eq('placa', d.placa).eq('valor', d.valor).neq('status', 'cancelada').gte('criado_em', desde).limit(1);
+    if (data && data.length) { n.duplicada = data[0]; render(); }
+  }
+
+  // ------------------------------------------------------------ cartões
+  function render() {
+    const lista = $('#listaNotas');
+    lista.innerHTML = notas.map(cartao).join('');
+    lista.querySelectorAll('[data-campo]').forEach((el) => {
+      el.addEventListener('input', () => {
+        const n = notas.find((x) => x.id === +el.dataset.id);
+        let v = el.value;
+        if (el.dataset.campo === 'placa') { v = v.toUpperCase().replace(/[^A-Z0-9]/g, ''); if (el.value !== v) el.value = v; }
+        n.dados[el.dataset.campo] = v;
+        el.classList.remove('erro');
+      });
+      if (el.dataset.campo === 'valor') el.addEventListener('blur', () => {
+        const n = notas.find((x) => x.id === +el.dataset.id);
+        n.dados.valor = el.value = App.normalizarValor(el.value);
+      });
+    });
+    lista.querySelectorAll('[data-remover]').forEach((b) => {
+      b.onclick = () => { notas = notas.filter((x) => x.id !== +b.dataset.remover); render(); };
+    });
+    lista.querySelectorAll('[data-ampliar]').forEach((im) => {
+      im.onclick = () => ampliar(notas.find((x) => x.id === +im.dataset.ampliar).foto || im.src);
+    });
+    renderAvisoPC();
+    atualizarBarra();
+  }
+
+  function cartao(n) {
+    const thumb = n.thumb ? `<img class="miniatura" src="${n.thumb}" data-ampliar="${n.id}" alt="">` : '<div class="miniatura"></div>';
+    const remover = `<button class="icone-btn" data-remover="${n.id}" title="Remover">${ICONES.fechar}</button>`;
+    if (n.estado === 'lendo') {
+      return `<article class="cartao nota" id="n${n.id}"><div class="nota-topo">${thumb}
+        <div class="info"><b>Lendo a nota…</b><span>Isso leva alguns segundos</span></div></div>
+        <div class="esqueleto"><div class="barra" style="width:40%"></div><div class="barra"></div><div class="barra" style="width:70%"></div></div></article>`;
+    }
+    if (n.estado === 'falhou') {
+      return `<article class="cartao nota" id="n${n.id}"><div class="nota-topo">${thumb}
+        <div class="info"><b>Não consegui ler esta nota</b><span>${esc(n.erro)}</span></div>${remover}</div>
+        <div class="nota-corpo"><div class="aviso erro">${ICONES.alerta}<span>Tire a foto de novo, com a nota inteira e bem iluminada.</span></div></div></article>`;
+    }
+    const d = n.dados;
+    const avisos = [];
+    if (d.alerta) avisos.push(`<div class="aviso warn">${ICONES.alerta}<span>${esc(d.alerta)}</span></div>`);
+    if (n.duplicada) avisos.push(`<div class="aviso erro">${ICONES.alerta}<span>Parece repetida: já existe uma nota com essa placa e esse valor (${esc(App.quando(n.duplicada.criado_em))}).</span></div>`);
+    if (d.fornecedor) avisos.push(`<div class="aviso info">${ICONES.info}<span>Fornecedor na nota: <b>${esc(d.fornecedor)}</b></span></div>`);
+    return `<article class="cartao nota" id="n${n.id}">
+      <div class="nota-topo">${thumb}
+        <div class="info"><b>Confira os dados</b><span>${esc(d.fornecedor || 'Nota ' + n.id)}</span></div>${remover}</div>
+      <div class="nota-corpo pilha">
+        <div class="grade-2">
+          <label class="campo"><span>Placa</span>
+            <input class="entrada placa" data-id="${n.id}" data-campo="placa" value="${esc(d.placa)}" placeholder="ABC1D23" autocapitalize="characters" spellcheck="false"></label>
+          <label class="campo"><span>Valor (R$)</span>
+            <input class="entrada valor" data-id="${n.id}" data-campo="valor" value="${esc(d.valor)}" inputmode="decimal"></label>
+        </div>
+        <label class="campo"><span>Descrição</span>
+          <textarea class="entrada" data-id="${n.id}" data-campo="descricao" rows="3">${esc(d.descricao)}</textarea></label>
+        ${avisos.join('')}
+      </div></article>`;
+  }
+
+  function ampliar(src) {
+    const f = document.createElement('div');
+    f.className = 'fundo-modal';
+    f.innerHTML = `<img src="${src}" alt="">`;
+    f.onclick = () => f.remove();
+    document.body.appendChild(f);
+  }
+
+  function atualizarBarra() {
+    const prontas = notas.filter((n) => n.estado === 'pronta').length;
+    const lendo = notas.some((n) => n.estado === 'lendo');
+    const mostrar = abaAtual === 'abaLancar' && prontas > 0;
+    $('#barraEnvio').classList.toggle('hidden', !mostrar);
+    const b = $('#btnEnviar');
+    b.disabled = lendo;
+    b.innerHTML = lendo
+      ? '<span class="gira"></span>Aguarde a leitura…'
+      : `${ICONES.enviar}Enviar ${prontas === 1 ? '1 nota' : prontas + ' notas'} para o PC`;
+  }
+
+  // ------------------------------------------------------------ envio
+  $('#btnEnviar').onclick = async () => {
+    const prontas = notas.filter((n) => n.estado === 'pronta');
+    let ok = true;
+    for (const n of prontas) {
+      const d = n.dados;
+      const cartaoEl = document.getElementById('n' + n.id);
+      const marca = (campo) => { cartaoEl.querySelector(`[data-campo="${campo}"]`).classList.add('erro'); ok = false; };
+      if (!/^[A-Z]{3}\d[A-Z0-9]\d{2}$/.test(d.placa || '')) marca('placa');
+      if (!Number.isFinite(App.numero(d.valor)) || App.numero(d.valor) <= 0) marca('valor');
+      if (!String(d.descricao || '').trim()) marca('descricao');
+    }
+    if (!ok) {
+      App.toast('Confira os campos em vermelho (placa no formato ABC1D23).', 'erro');
+      document.querySelector('.entrada.erro')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+    const b = $('#btnEnviar');
+    b.disabled = true; b.innerHTML = '<span class="gira"></span>Enviando…';
+    const linhas = prontas.map((n) => ({
+      placa: n.dados.placa,
+      descricao: n.dados.descricao.trim(),
+      valor: n.dados.valor,
+      fornecedor: n.dados.fornecedor || '',
+      cnpj_fornecedor: n.dados.cnpj_fornecedor || '',
+      alerta: n.dados.alerta || '',
+    }));
+    const { error } = await App.sb.from('notas').insert(linhas);
+    if (error) {
+      App.toast('Erro ao enviar: ' + error.message, 'erro');
+      atualizarBarra();
+      return;
+    }
+    notas = notas.filter((n) => n.estado !== 'pronta');
+    render();
+    const est = App.estadoPC(agente);
+    App.toast(est.classe === 'ok' ? `${linhas.length === 1 ? "Nota enviada" : linhas.length + " notas enviadas"}. O PC já está lançando.` : `${linhas.length === 1 ? "Nota guardada" : linhas.length + " notas guardadas"} na fila do PC.`, 'ok');
+    irPara('abaHistorico');
+  };
+
+  // ------------------------------------------------------------ histórico
+  async function carregarHistorico() {
+    const { data, error } = await App.sb.from('notas').select('*')
+      .eq('user_id', App.perfil.id).order('id', { ascending: false }).limit(60);
+    if (error) return;
+    const hoje = new Date().toDateString();
+    const lancadasHoje = data.filter((n) => n.status === 'lancada' && new Date(n.lancado_em || n.criado_em).toDateString() === hoje);
+    $('#rLancadas').textContent = lancadasHoje.length;
+    $('#rTotal').textContent = App.moeda(lancadasHoje.reduce((s, n) => s + (App.numero(n.valor) || 0), 0));
+    $('#rFila').textContent = data.filter((n) => n.status === 'pendente' || n.status === 'lancando').length;
+
+    const el = $('#listaHistorico');
+    if (!data.length) {
+      el.innerHTML = `<div class="vazio">${ICONES.vazio}<div>Nenhuma nota ainda.</div></div>`;
+      return;
+    }
+    el.innerHTML = data.map((n) => {
+      let acoes = '';
+      if (n.status === 'pendente') acoes = `<button class="btn fantasma pequeno" data-cancelar="${n.id}">Cancelar</button>`;
+      if (n.status === 'erro' || n.status === 'cancelada') acoes = `<button class="btn pequeno" data-reenviar="${n.id}">${ICONES.recarregar}Reenviar</button>`;
+      return `<div class="item"><div class="corpo">
+        <div class="linha1"><span class="placa-tag">${esc(n.placa || '—')}</span>
+          <span class="status ${n.status}">${App.STATUS[n.status] || n.status}</span>
+          <span class="valor-tag">R$ ${esc(n.valor)}</span></div>
+        <div class="desc">${esc(n.descricao)}</div>
+        ${n.mensagem ? `<div class="aviso ${n.status === 'erro' ? 'erro' : 'info'}" style="margin-top:8px">${ICONES.info}<span>${esc(n.mensagem)}</span></div>` : ''}
+        <div class="meta"><span>${esc(App.quando(n.criado_em))}</span>${n.lancado_em ? `<span>· lançada ${esc(App.quando(n.lancado_em))}</span>` : ''}<span class="espaco" style="flex:1"></span>${acoes}</div>
+      </div></div>`;
+    }).join('');
+    el.querySelectorAll('[data-cancelar]').forEach((b) => b.onclick = () => mudarStatus(+b.dataset.cancelar, 'cancelada', 'pendente'));
+    el.querySelectorAll('[data-reenviar]').forEach((b) => b.onclick = () => mudarStatus(+b.dataset.reenviar, 'pendente'));
+  }
+
+  async function mudarStatus(id, status, somenteSe) {
+    let q = App.sb.from('notas').update({ status, mensagem: '' }).eq('id', id);
+    if (somenteSe) q = q.eq('status', somenteSe);
+    const { error } = await q;
+    if (error) App.toast(error.message, 'erro');
+    else App.toast(status === 'pendente' ? 'Nota de volta na fila.' : 'Nota cancelada.', 'ok');
+    carregarHistorico();
+  }
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,7 @@
+node_modules/
+.vercel/
+.env*
+agente/build/
+agente/dist/
+agente/*.spec
+__pycache__/

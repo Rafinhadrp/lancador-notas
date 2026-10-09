@@ -1,0 +1,53 @@
+name: Gerar programa do PC (.exe)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ["agente/**", ".github/workflows/programa-pc.yml"]
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Instalar dependências
+        working-directory: agente
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pyinstaller==6.11.1
+
+      - name: Gerar LancadorNotas.exe
+        working-directory: agente
+        run: >
+          pyinstaller --noconfirm --onefile --windowed --clean
+          --name LancadorNotas
+          --icon icone.ico
+          --add-data "logo.png;."
+          --add-data "icone.png;."
+          --add-data "icone.ico;."
+          --collect-all customtkinter
+          lancador.py
+
+      - name: Guardar o .exe
+        uses: actions/upload-artifact@v4
+        with:
+          name: LancadorNotas
+          path: agente/dist/LancadorNotas.exe
+
+      - name: Publicar para download
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: programa
+          name: Programa do PC
+          body: "Baixe o LancadorNotas.exe abaixo. Gerado automaticamente a cada atualização."
+          files: agente/dist/LancadorNotas.exe
+          make_latest: true

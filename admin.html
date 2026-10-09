@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b0f14">
+<title>Administração · Lançador de Notas</title>
+<link rel="icon" href="/assets/favicon.png">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/estilo.css">
+</head>
+<body>
+
+<div id="telaCarregando" class="login-tela">
+  <div class="login-caixa" style="text-align:center">
+    <img src="/assets/logo@2x.png" alt="Rafinhadr" class="logo-grande">
+    <p class="muted" id="msgCarregando">Conectando…</p>
+  </div>
+</div>
+
+<!-- primeiro administrador -->
+<div id="telaPrimeiro" class="login-tela hidden">
+  <form class="login-caixa" id="formPrimeiro">
+    <img src="/assets/logo@2x.png" alt="Rafinhadr" class="logo-grande">
+    <h1>Bem-vindo</h1>
+    <p class="sub">Crie o administrador. Ele cadastra o resto da equipe.</p>
+    <div class="cartao pilha">
+      <label class="campo"><span>Seu nome</span><input class="entrada" name="nome" required></label>
+      <label class="campo"><span>Usuário (para entrar)</span><input class="entrada" name="usuario" autocapitalize="none" spellcheck="false" required placeholder="ex.: rafael"></label>
+      <label class="campo"><span>Senha (mínimo 6)</span><input class="entrada" name="senha" type="password" minlength="6" required></label>
+      <button class="btn primario bloco" type="submit">Criar administrador</button>
+      <div class="aviso erro hidden" id="erroPrimeiro"></div>
+    </div>
+    <p class="rodape-marca">feito por <b>Rafinhadr</b></p>
+  </form>
+</div>
+
+<!-- login -->
+<div id="telaLogin" class="login-tela hidden">
+  <form class="login-caixa" id="formLogin">
+    <img src="/assets/logo@2x.png" alt="Rafinhadr" class="logo-grande">
+    <h1>Administração</h1>
+    <p class="sub">Entre com um usuário administrador.</p>
+    <div class="cartao pilha">
+      <label class="campo"><span>Usuário</span><input class="entrada" name="usuario" autocomplete="username" autocapitalize="none" spellcheck="false" required></label>
+      <label class="campo"><span>Senha</span><input class="entrada" name="senha" type="password" autocomplete="current-password" required></label>
+      <button class="btn primario bloco" type="submit">Entrar</button>
+      <div class="aviso erro hidden" id="erroLogin"></div>
+    </div>
+    <p class="rodape-marca"><a href="/">Voltar ao app</a></p>
+  </form>
+</div>
+
+<!-- painel -->
+<div id="telaPainel" class="hidden">
+  <header class="topo">
+    <a class="marca" href="/admin.html">
+      <img src="/assets/logo@2x.png" alt="Rafinhadr">
+      <span class="titulo">Administração<small id="nomeUsuario"></small></span>
+    </a>
+    <span class="espaco"></span>
+    <a class="btn pequeno" href="/">Abrir o app</a>
+    <button class="icone-btn" id="btnSair" title="Sair"></button>
+  </header>
+
+  <main class="pagina larga">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:18px">
+      <div class="segmentos" id="segmentos">
+        <button class="ativa" data-sec="secEquipe">Equipe</button>
+        <button data-sec="secNotas">Notas</button>
+        <button data-sec="secPrograma">Programa do PC</button>
+      </div>
+      <span class="muted" id="infoTopo"></span>
+    </div>
+
+    <!-- equipe -->
+    <section id="secEquipe">
+      <div class="cartao">
+        <h2 style="margin-bottom:12px">Novo usuário</h2>
+        <form id="formNovo" class="filtros" style="margin:0">
+          <label class="campo" style="flex:1.3"><span>Nome</span><input class="entrada" name="nome" required placeholder="Maria Souza"></label>
+          <label class="campo" style="flex:1"><span>Usuário</span><input class="entrada" name="usuario" required autocapitalize="none" spellcheck="false" placeholder="maria"></label>
+          <label class="campo" style="flex:1"><span>Senha inicial</span><input class="entrada" name="senha" required minlength="6" placeholder="mín. 6 caracteres"></label>
+          <label class="campo" style="min-width:auto"><span>&nbsp;</span>
+            <span style="display:flex;align-items:center;gap:8px;min-height:46px;color:var(--muted)"><input type="checkbox" name="admin"> Admin</span></label>
+          <button class="btn primario" type="submit"><span data-icone="mais"></span>Adicionar</button>
+        </form>
+      </div>
+      <div class="cartao" style="padding:0">
+        <div class="tabela-wrap"><table>
+          <thead><tr><th>Pessoa</th><th>Usuário</th><th>Programa do PC</th><th>Situação</th><th></th></tr></thead>
+          <tbody id="tabelaEquipe"></tbody>
+        </table></div>
+      </div>
+    </section>
+
+    <!-- notas -->
+    <section id="secNotas" class="hidden">
+      <div class="filtros">
+        <label class="campo"><span>Pessoa</span><select class="entrada" id="fPessoa"><option value="">Todos</option></select></label>
+        <label class="campo"><span>Período</span><select class="entrada" id="fPeriodo">
+          <option value="0">Hoje</option><option value="7" selected>Últimos 7 dias</option><option value="30">Últimos 30 dias</option><option value="90">Últimos 90 dias</option></select></label>
+        <label class="campo"><span>Situação</span><select class="entrada" id="fStatus">
+          <option value="">Todas</option><option value="lancada">Lançadas</option><option value="pendente">Na fila</option><option value="erro">Com problema</option><option value="cancelada">Canceladas</option></select></label>
+        <label class="campo" style="flex:1"><span>Placa</span><input class="entrada placa" id="fPlaca" placeholder="Buscar placa"></label>
+        <button class="btn" id="btnCSV"><span data-icone="download"></span>Exportar planilha</button>
+      </div>
+      <div class="resumo" style="grid-template-columns:repeat(4,1fr)">
+        <div class="num"><b id="rQtd">0</b><span>notas</span></div>
+        <div class="num"><b id="rLanc">0</b><span>lançadas</span></div>
+        <div class="num"><b id="rProb">0</b><span>com problema</span></div>
+        <div class="num"><b id="rTot">0,00</b><span>total lançado (R$)</span></div>
+      </div>
+      <div class="cartao" style="padding:0">
+        <div class="tabela-wrap"><table>
+          <thead><tr><th>Quando</th><th>Pessoa</th><th>Placa</th><th>Descrição</th><th style="text-align:right">Valor</th><th>Situação</th></tr></thead>
+          <tbody id="tabelaNotas"></tbody>
+        </table></div>
+      </div>
+    </section>
+
+    <!-- programa -->
+    <section id="secPrograma" class="hidden">
+      <div class="cartao pilha">
+        <h2>Programa do PC</h2>
+        <p class="muted" style="margin:0">Cada pessoa instala no próprio computador e entra com o mesmo usuário do celular. As notas enviadas pelo celular são lançadas no PC dessa pessoa.</p>
+        <div id="areaDownload"></div>
+        <ol class="muted" style="margin:0;padding-left:20px;line-height:1.9">
+          <li>Baixe e abra o <b>LancadorNotas.exe</b> (se o Windows avisar, clique em “Mais informações” → “Executar assim mesmo”).</li>
+          <li>Na primeira vez, informe o endereço da central: <b class="mono" id="enderecoCentral"></b></li>
+          <li>Entre com usuário e senha.</li>
+          <li>Na aba <b>Calibragem</b>, com o formulário do sistema aberto, capture a posição de cada campo.</li>
+          <li>Pronto: deixe o programa aberto. Ele lança sozinho o que chegar do celular.</li>
+        </ol>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="/assets/comum.js"></script>
+<script>
+(function () {
+  const $ = (s) => document.querySelector(s);
+  const { ICONES, esc } = App;
+  document.querySelectorAll('[data-icone]').forEach((el) => { el.innerHTML = ICONES[el.dataset.icone]; });
+  $('#btnSair').innerHTML = ICONES.sair;
+
+  let usuarios = [];
+  let notasAtuais = [];
+  const mostrar = (id) => ['telaCarregando', 'telaPrimeiro', 'telaLogin', 'telaPainel'].forEach((t) => $('#' + t).classList.toggle('hidden', t !== id));
+
+  (async function () {
+    try {
+      const cfg = await App.iniciar();
+      if (cfg.precisaPrimeiroAdmin) return mostrar('telaPrimeiro');
+      if (App.perfil && App.perfil.admin) return abrirPainel();
+      mostrar('telaLogin');
+      if (App.perfil) erro('#erroLogin', 'Seu usuário não é administrador.');
+    } catch (e) { $('#msgCarregando').textContent = e.message; }
+  })();
+
+  function erro(sel, msg) { const el = $(sel); el.textContent = msg; el.classList.remove('hidden'); }
+  async function ocupado(btn, texto, fn) {
+    const orig = btn.innerHTML; btn.disabled = true; btn.innerHTML = `<span class="gira"></span>${texto}`;
+    try { return await fn(); } finally { btn.disabled = false; btn.innerHTML = orig; }
+  }
+
+  $('#formPrimeiro').onsubmit = async (ev) => {
+    ev.preventDefault();
+    const f = ev.target;
+    $('#erroPrimeiro').classList.add('hidden');
+    await ocupado(f.querySelector('button'), 'Criando…', async () => {
+      try {
+        await App.api('/api/admin', { acao: 'primeiro_admin', nome: f.nome.value, usuario: f.usuario.value, senha: f.senha.value });
+        await App.entrar(f.usuario.value.trim().toLowerCase(), f.senha.value);
+        App.toast('Administrador criado. Bem-vindo!', 'ok');
+        abrirPainel();
+      } catch (e) { erro('#erroPrimeiro', e.message); }
+    });
+  };
+
+  $('#formLogin').onsubmit = async (ev) => {
+    ev.preventDefault();
+    const f = ev.target;
+    $('#erroLogin').classList.add('hidden');
+    await ocupado(f.querySelector('button'), 'Entrando…', async () => {
+      try {
+        const p = await App.entrar(f.usuario.value, f.senha.value);
+        if (!p.admin) return erro('#erroLogin', 'Seu usuário não é administrador.');
+        abrirPainel();
+      } catch (e) { erro('#erroLogin', e.message); }
+    });
+  };
+
+  $('#btnSair').onclick = () => App.sair();
+
+  function abrirPainel() {
+    mostrar('telaPainel');
+    $('#nomeUsuario').textContent = App.perfil.nome;
+    $('#enderecoCentral').textContent = location.origin;
+    $('#areaDownload').innerHTML = App.cfg.linkPrograma
+      ? `<a class="btn primario" href="${esc(App.cfg.linkPrograma)}" target="_blank" rel="noopener">${ICONES.download}Baixar o programa (Windows)</a>`
+      : `<div class="aviso info">${ICONES.info}<span>Para mostrar o botão de download aqui, configure a variável <b class="mono">LINK_PROGRAMA</b> no Vercel com o link do .exe (veja o LEIA-ME).</span></div>`;
+    carregarEquipe();
+    setInterval(() => { if (!document.hidden && !$('#secEquipe').classList.contains('hidden')) carregarEquipe(); }, 10000);
+  }
+
+  // ------------------------------------------------------------ seções
+  document.querySelectorAll('#segmentos button').forEach((b) => b.onclick = () => {
+    document.querySelectorAll('#segmentos button').forEach((x) => x.classList.toggle('ativa', x === b));
+    ['secEquipe', 'secNotas', 'secPrograma'].forEach((s) => $('#' + s).classList.toggle('hidden', s !== b.dataset.sec));
+    if (b.dataset.sec === 'secNotas') carregarNotas();
+    if (b.dataset.sec === 'secEquipe') carregarEquipe();
+  });
+
+  // ------------------------------------------------------------ equipe
+  async function carregarEquipe() {
+    try {
+      const r = await App.api('/api/admin', { acao: 'listar' });
+      usuarios = r.usuarios;
+    } catch (e) { return App.toast(e.message, 'erro'); }
+    const online = usuarios.filter((u) => App.estadoPC(u.agente).classe === 'ok').length;
+    $('#infoTopo').textContent = `${usuarios.length} pessoa(s) · ${online} PC(s) conectado(s)`;
+    const sel = $('#fPessoa'), atual = sel.value;
+    sel.innerHTML = '<option value="">Todos</option>' + usuarios.map((u) => `<option value="${u.id}">${esc(u.nome)}</option>`).join('');
+    sel.value = atual;
+
+    $('#tabelaEquipe').innerHTML = usuarios.map((u) => {
+      const est = App.estadoPC(u.agente);
+      const eu = u.id === App.perfil.id;
+      const visto = u.agente ? `<div class="faint" style="font-size:12px;margin-top:3px">${esc(u.agente.maquina || '')} · visto ${esc(App.quando(u.agente.visto_em))}</div>` : '';
+      return `<tr>
+        <td><b>${esc(u.nome)}</b>${u.admin ? '<span class="selo">admin</span>' : ''}${eu ? '<span class="selo cinza">você</span>' : ''}</td>
+        <td class="mono">${esc(u.usuario)}</td>
+        <td><span class="pilula ${est.classe}"><span class="ponto"></span><span>${est.texto}</span></span>${visto}</td>
+        <td>${u.ativo ? '<span class="status lancada">Ativo</span>' : '<span class="status cancelada">Desativado</span>'}</td>
+        <td class="acoes">
+          <button class="btn pequeno" data-a="senha" data-id="${u.id}">Nova senha</button>
+          ${eu ? '' : `<button class="btn pequeno" data-a="admin" data-id="${u.id}">${u.admin ? 'Tirar admin' : 'Tornar admin'}</button>
+          <button class="btn pequeno" data-a="ativo" data-id="${u.id}">${u.ativo ? 'Desativar' : 'Reativar'}</button>
+          <button class="btn pequeno perigo" data-a="excluir" data-id="${u.id}">Excluir</button>`}
+        </td></tr>`;
+    }).join('') || '<tr><td colspan="5" class="vazio">Nenhum usuário.</td></tr>';
+
+    $('#tabelaEquipe').querySelectorAll('[data-a]').forEach((b) => b.onclick = () => acaoUsuario(b.dataset.a, usuarios.find((u) => u.id === b.dataset.id), b));
+  }
+
+  async function acaoUsuario(acao, u, btn) {
+    try {
+      if (acao === 'senha') {
+        const senha = await perguntar(`Nova senha para ${u.nome}`, 'Mínimo 6 caracteres', true);
+        if (!senha) return;
+        await ocupado(btn, '', () => App.api('/api/admin', { acao: 'senha', id: u.id, senha }));
+        App.toast('Senha alterada.', 'ok');
+      } else if (acao === 'admin') {
+        await ocupado(btn, '', () => App.api('/api/admin', { acao: 'atualizar', id: u.id, admin: !u.admin }));
+      } else if (acao === 'ativo') {
+        await ocupado(btn, '', () => App.api('/api/admin', { acao: 'atualizar', id: u.id, ativo: !u.ativo }));
+        App.toast(u.ativo ? `${u.nome} foi desativado.` : `${u.nome} foi reativado.`, 'ok');
+      } else if (acao === 'excluir') {
+        const ok = await confirmar(`Excluir ${u.nome}?`, 'O usuário e todo o histórico de notas dele serão apagados. Se quiser só bloquear o acesso, use “Desativar”.');
+        if (!ok) return;
+        await ocupado(btn, '', () => App.api('/api/admin', { acao: 'excluir', id: u.id }));
+        App.toast('Usuário excluído.', 'ok');
+      }
+      carregarEquipe();
+    } catch (e) { App.toast(e.message, 'erro'); }
+  }
+
+  $('#formNovo').onsubmit = async (ev) => {
+    ev.preventDefault();
+    const f = ev.target;
+    await ocupado(f.querySelector('button[type=submit]'), 'Criando…', async () => {
+      try {
+        await App.api('/api/admin', { acao: 'criar', nome: f.nome.value, usuario: f.usuario.value, senha: f.senha.value, admin: f.admin.checked });
+        App.toast(`Usuário “${f.usuario.value.trim().toLowerCase()}” criado.`, 'ok');
+        f.reset();
+        carregarEquipe();
+      } catch (e) { App.toast(e.message, 'erro'); }
+    });
+  };
+
+  // ------------------------------------------------------------ notas
+  ['#fPessoa', '#fPeriodo', '#fStatus'].forEach((s) => $(s).onchange = carregarNotas);
+  let tPlaca;
+  $('#fPlaca').oninput = (e) => { e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''); clearTimeout(tPlaca); tPlaca = setTimeout(carregarNotas, 350); };
+
+  async function carregarNotas() {
+    const dias = +$('#fPeriodo').value;
+    const desde = new Date(); desde.setHours(0, 0, 0, 0); desde.setDate(desde.getDate() - dias);
+    let q = App.sb.from('notas').select('*').gte('criado_em', desde.toISOString()).order('id', { ascending: false }).limit(2000);
+    if ($('#fPessoa').value) q = q.eq('user_id', $('#fPessoa').value);
+    if ($('#fStatus').value) q = q.eq('status', $('#fStatus').value);
+    if ($('#fPlaca').value) q = q.ilike('placa', `%${$('#fPlaca').value}%`);
+    const { data, error } = await q;
+    if (error) return App.toast(error.message, 'erro');
+    notasAtuais = data;
+    const nome = (id) => (usuarios.find((u) => u.id === id) || {}).nome || '—';
+    const lancadas = data.filter((n) => n.status === 'lancada');
+    $('#rQtd').textContent = data.length;
+    $('#rLanc').textContent = lancadas.length;
+    $('#rProb').textContent = data.filter((n) => n.status === 'erro').length;
+    $('#rTot').textContent = App.moeda(lancadas.reduce((s, n) => s + (App.numero(n.valor) || 0), 0));
+    $('#tabelaNotas').innerHTML = data.map((n) => `<tr>
+      <td style="white-space:nowrap">${esc(App.quando(n.criado_em))}</td>
+      <td>${esc(nome(n.user_id))}</td>
+      <td><span class="placa-tag mono">${esc(n.placa || '—')}</span></td>
+      <td style="max-width:420px">${esc(n.descricao)}${n.mensagem ? `<div class="faint" style="font-size:12px;margin-top:3px">${esc(n.mensagem)}</div>` : ''}</td>
+      <td class="mono" style="text-align:right;white-space:nowrap">R$ ${esc(n.valor)}</td>
+      <td><span class="status ${n.status}">${App.STATUS[n.status] || n.status}</span></td></tr>`).join('')
+      || `<tr><td colspan="6"><div class="vazio">${ICONES.vazio}<div>Nenhuma nota nesse filtro.</div></div></td></tr>`;
+  }
+
+  $('#btnCSV').onclick = () => {
+    if (!notasAtuais.length) return App.toast('Nada para exportar.', 'erro');
+    const nome = (id) => (usuarios.find((u) => u.id === id) || {}).nome || '';
+    const linhas = [['Data', 'Pessoa', 'Placa', 'Descrição', 'Valor', 'Fornecedor', 'CNPJ', 'Situação', 'Lançada em', 'Observação']]
+      .concat(notasAtuais.map((n) => [
+        new Date(n.criado_em).toLocaleString('pt-BR'), nome(n.user_id), n.placa, n.descricao, n.valor,
+        n.fornecedor, n.cnpj_fornecedor, App.STATUS[n.status] || n.status,
+        n.lancado_em ? new Date(n.lancado_em).toLocaleString('pt-BR') : '', n.mensagem,
+      ]));
+    const csv = '﻿' + linhas.map((l) => l.map((c) => `"${String(c ?? '').replace(/"/g, '""')}"`).join(';')).join('\r\n');
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+    a.download = `notas-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+  };
+
+  // ------------------------------------------------------------ diálogos
+  function dialogo(html) {
+    return new Promise((ok) => {
+      const f = document.createElement('div');
+      f.className = 'fundo-modal';
+      f.innerHTML = `<div class="modal">${html}</div>`;
+      document.body.appendChild(f);
+      const fim = (v) => { f.remove(); ok(v); };
+      f.addEventListener('click', (e) => { if (e.target === f) fim(null); });
+      f.querySelector('[data-nao]').onclick = () => fim(null);
+      f.querySelector('form').onsubmit = (e) => { e.preventDefault(); const i = f.querySelector('input'); fim(i ? i.value : true); };
+      setTimeout(() => (f.querySelector('input') || f.querySelector('[type=submit]')).focus(), 50);
+    });
+  }
+  function perguntar(titulo, dica) {
+    return dialogo(`<form><h2>${esc(titulo)}</h2><input class="entrada" minlength="6" required placeholder="${esc(dica)}">
+      <div class="botoes"><button type="button" class="btn fantasma" data-nao>Cancelar</button><button type="submit" class="btn primario">Salvar</button></div></form>`);
+  }
+  function confirmar(titulo, texto) {
+    return dialogo(`<form><h2>${esc(titulo)}</h2><p class="muted" style="margin:0">${esc(texto)}</p>
+      <div class="botoes"><button type="button" class="btn fantasma" data-nao>Cancelar</button><button type="submit" class="btn primario" style="background:var(--danger);border-color:var(--danger)">Excluir</button></div></form>`);
+  }
+})();
+</script>
+</body>
+</html>
