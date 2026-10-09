@@ -23,6 +23,15 @@ A equipe fotografa no celular notas de oficinas e autopeças. O Claude lê a not
 - `.github/workflows/programa-pc.yml`: gera o `LancadorNotas.exe` (PyInstaller) e publica na release `programa`.
 - Login: o usuário vira o e-mail interno `usuario@lancador.local`. Os usuários são criados só pelo admin, sem cadastro público.
 
+## XML da NF-e
+- No app há o botão **Arquivo XML da nota**: `App.lerNFe()` (em `assets/comum.js`) lê o XML no próprio navegador, sem IA.
+- data = `dhEmi` (DD/MM), itens = `det/prod/xProd`, valor = `ICMSTot/vNF`, fornecedor = `emit/xNome`.
+- Placa: procurada em `infCpl`, `infAdFisco`, `xPed`, `infAdProd` e `obsCont`. Se não achar, a pessoa digita.
+- Alertas: nota de devolução (`finNFe=4` ou natOp com DEVOLUC), não autorizada (`cStat` ≠ 100/150), destinatário diferente da Autoforte (CNPJ 10696802000131).
+
+## Autos 360 (para uma futura automação via Playwright)
+- Usa PrimeReact. Campo Veículo: `input.p-autocomplete-input[name="veiculo"]` (placeholder "Pesquise por placa, chassi, modelo, ano ou cor do Veículo").
+
 ## Regras de negócio (decididas com o usuário)
 - **Descrição**: `DD/MM ITEM 1 + ITEM 2 + ...` (data em DD/MM, sem ano), em maiúsculas e sem acento. Ex.: `10/09 ELRING COLA SILICONE ELRING PRETO 70GR + SINTECH BRONZINA BIELA FT 025 + VOX FILTRO OLEO FT`.
 - **Data da descrição**:

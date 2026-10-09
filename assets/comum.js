@@ -141,6 +141,53 @@
       return { classe: 'ok', texto: 'PC conectado' };
     },
 
+    // lê o XML da NF-e/NFC-e direto (sem IA) e devolve no mesmo formato do /api/ler
+    lerNFe(texto) {
+      const doc = new DOMParser().parseFromString(texto, 'application/xml');
+      if (doc.getElementsByTagName('parsererror').length) throw new Error('Arquivo XML inválido.');
+      const tag = (nome, raiz = doc) => raiz.getElementsByTagName(nome)[0];
+      const txt = (nome, raiz) => (tag(nome, raiz)?.textContent || '').trim();
+      const inf = tag('infNFe');
+      if (!inf) throw new Error('Esse XML não é de uma NF-e.');
+      const limpar = (s) => String(s).normalize('NFD').replace(/[̀-ͯ]/g, '')
+        .toUpperCase().replace(/\s+/g, ' ').trim().replace(/[-\s]+$/, '');
+
+      const ide = tag('ide', inf), emit = tag('emit', inf), dest = tag('dest', inf);
+      const dhEmi = txt('dhEmi', ide) || txt('dEmi', ide);
+      const m = dhEmi.match(/^\d{4}-(\d{2})-(\d{2})/);
+      const data = m ? `${m[2]}/${m[1]}` : '';
+      const itens = [...inf.getElementsByTagName('det')].map((d) => limpar(txt('xProd', d))).filter(Boolean);
+      const vNF = txt('vNF', tag('ICMSTot', inf)) || txt('vNF', inf);
+      const valor = vNF ? App.moeda(parseFloat(vNF)) : '';
+
+      // placa: procura nas observações da nota e dos itens (ABC1234 ou ABC1D23, com ou sem traço)
+      const obs = [txt('infCpl', inf), txt('infAdFisco', inf), txt('xPed', inf),
+        ...[...inf.getElementsByTagName('infAdProd')].map((e) => e.textContent),
+        ...[...inf.getElementsByTagName('xTexto')].map((e) => e.textContent)].join(' ').toUpperCase();
+      const p = obs.match(/(?:^|[^A-Z0-9])([A-Z]{3})[-\s]?(\d[A-Z0-9]\d{2})(?![A-Z0-9])/);
+      const placa = p ? p[1] + p[2] : '';
+
+      const cnpj = txt('CNPJ', emit).replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5');
+      const alertas = [];
+      const natOp = limpar(txt('natOp', ide));
+      if (txt('finNFe', ide) === '4' || /DEVOLUC/.test(natOp)) alertas.push(`Nota de DEVOLUÇÃO (${natOp}): confira se deve mesmo ser lançada como despesa.`);
+      const cStat = txt('cStat', tag('infProt') || doc);
+      if (cStat && !['100', '150'].includes(cStat)) alertas.push(`Nota não autorizada na SEFAZ (situação ${cStat}).`);
+      const cnpjDest = txt('CNPJ', dest);
+      if (cnpjDest && cnpjDest !== '10696802000131') alertas.push(`Nota emitida para outro CNPJ (${limpar(txt('xNome', dest))}).`);
+      if (!placa) alertas.push('Placa não encontrada no XML: digite a placa.');
+
+      return {
+        data, placa, itens,
+        descricao: [data, itens.join(' + ')].filter(Boolean).join(' '),
+        valor,
+        fornecedor: limpar(txt('xNome', emit) || txt('xFant', emit)),
+        cnpj_fornecedor: cnpj,
+        alerta: alertas.join(' '),
+        chave: (inf.getAttribute('Id') || '').replace(/^NFe/, ''),
+      };
+    },
+
     STATUS: {
       pendente: 'Na fila',
       lancando: 'Lançando…',

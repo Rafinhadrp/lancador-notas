@@ -63,13 +63,15 @@
     <section class="captura">
       <div class="icone-camera" data-icone="camera"></div>
       <h2>Fotografe a nota</h2>
-      <p>O Claude lê, você confere e o seu PC lança no sistema.</p>
+      <p>O Claude lê (ou mande o XML da NF-e), você confere e o seu PC lança no sistema.</p>
       <div class="acoes">
         <label class="btn primario" for="inputCamera"><span data-icone="camera"></span>Tirar foto</label>
         <label class="btn" for="inputGaleria"><span data-icone="galeria"></span>Galeria</label>
+        <label class="btn largo" for="inputXML"><span data-icone="lista"></span>Arquivo XML da nota</label>
       </div>
       <input id="inputCamera" type="file" accept="image/*" capture="environment">
       <input id="inputGaleria" type="file" accept="image/*" multiple>
+      <input id="inputXML" type="file" accept=".xml,text/xml,application/xml" multiple>
     </section>
     <div id="avisoPC"></div>
     <div id="listaNotas"></div>
@@ -195,6 +197,7 @@
   // ------------------------------------------------------------ fotos
   $('#inputCamera').onchange = (e) => { receber([...e.target.files]); e.target.value = ''; };
   $('#inputGaleria').onchange = (e) => { receber([...e.target.files]); e.target.value = ''; };
+  $('#inputXML').onchange = (e) => { receber([...e.target.files]); e.target.value = ''; };
 
   async function receber(arquivos) {
     if (!arquivos.length) return;
@@ -213,8 +216,19 @@
     await Promise.all(trab);
   }
 
+  const ehXML = (f) => /\.xml$/i.test(f.name) || /xml/.test(f.type);
+
   async function lerNota(n) {
     try {
+      if (ehXML(n.arquivo)) {
+        n.xml = n.arquivo.name;
+        n.dados = App.lerNFe(await n.arquivo.text());
+        n.estado = 'pronta';
+        verificarDuplicada(n);
+        delete n.arquivo;
+        render();
+        return;
+      }
       const img = await carregarImagem(n.arquivo);
       n.thumb = reduzir(img, 220, 0.7);
       n.foto = reduzir(img, 1600, 0.85);
@@ -289,7 +303,8 @@
   }
 
   function cartao(n) {
-    const thumb = n.thumb ? `<img class="miniatura" src="${n.thumb}" data-ampliar="${n.id}" alt="">` : '<div class="miniatura"></div>';
+    const thumb = n.thumb ? `<img class="miniatura" src="${n.thumb}" data-ampliar="${n.id}" alt="">`
+      : `<div class="miniatura miniatura-xml">${n.xml ? 'XML' : ''}</div>`;
     const remover = `<button class="icone-btn" data-remover="${n.id}" title="Remover">${ICONES.fechar}</button>`;
     if (n.estado === 'lendo') {
       return `<article class="cartao nota" id="n${n.id}"><div class="nota-topo">${thumb}
@@ -299,7 +314,7 @@
     if (n.estado === 'falhou') {
       return `<article class="cartao nota" id="n${n.id}"><div class="nota-topo">${thumb}
         <div class="info"><b>Não consegui ler esta nota</b><span>${esc(n.erro)}</span></div>${remover}</div>
-        <div class="nota-corpo"><div class="aviso erro">${ICONES.alerta}<span>Tire a foto de novo, com a nota inteira e bem iluminada.</span></div></div></article>`;
+        <div class="nota-corpo"><div class="aviso erro">${ICONES.alerta}<span>${n.xml ? 'Confira se o arquivo é o XML da NF-e (não o PDF/DANFE).' : 'Tire a foto de novo, com a nota inteira e bem iluminada.'}</span></div></div></article>`;
     }
     const d = n.dados;
     const avisos = [];
@@ -367,7 +382,7 @@
       valor: n.dados.valor,
       fornecedor: n.dados.fornecedor || '',
       cnpj_fornecedor: n.dados.cnpj_fornecedor || '',
-      alerta: n.dados.alerta || '',
+      alerta: (n.dados.alerta || '').replace('Placa não encontrada no XML: digite a placa.', '').trim(),
     }));
     const { error } = await App.sb.from('notas').insert(linhas);
     if (error) {
