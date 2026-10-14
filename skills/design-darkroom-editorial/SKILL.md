@@ -18,6 +18,25 @@ Esta skill transforma o `DESIGN.md` da ORYZO num sistema reutilizável. Ela vale
 3. **Traduza o conteúdo, não o estilo.** "ORYZO", "porta-copos", "Lusion", "tapete de corte verde" são o conteúdo da referência. No projeto novo eles viram: o nome da marca, o objeto principal, o estúdio/autor e o contexto de uso daquele objeto (seção 2).
 4. **Antes de entregar**, passe a checklist da seção 10 item por item. Uma página que falha em qualquer item **bloqueante** não está pronta.
 
+### Arquivos da skill
+
+```
+design-darkroom-editorial/
+├── SKILL.md              ← regras, princípios, componentes, checklist (este arquivo)
+└── tokens/
+    ├── tokens.json       ← tokens medidos no site original (formato W3C Design Tokens)
+    ├── variables.css     ← os mesmos tokens como CSS custom properties (:root)
+    ├── theme.css         ← os mesmos tokens como tema do Tailwind v4 (@theme), como medidos
+    └── tailwind.css      ← theme.css pronto para uso: tema padrão apagado + ajustes da skill
+```
+
+**Precedência quando houver diferença:**
+1. **Valores** (hex, px, line-height, peso): vale `tokens/tokens.json`, que é a medição.
+2. **Papéis e uso** (onde cada valor pode aparecer): vale este `SKILL.md`, porque os papéis do `DESIGN.md` foram interpretados a partir da medição.
+3. **Implementação:** copie `tokens/variables.css` (CSS puro) **ou** `tokens/tailwind.css` (Tailwind v4) para o projeto novo. Não redigite os valores à mão. Ajustes obrigatórios ao copiar estão em 11.2 e 11.4.
+
+`variables.css` e `tokens.json` já vêm com o erro do original corrigido: `--surface-cork-border` / `surface.cork-border` passaram de `#40372` para `#40372e`.
+
 ---
 
 ## 1. Princípios (o porquê de cada regra)
@@ -100,9 +119,32 @@ Pesos permitidos: **400 e 500**. Nada de 300, 600, 700, 800, bold, light.
 | rótulo vertical / tags | 10–12px | 1.2 | 500 | MAIÚSCULA | 0 |
 | legal | 8px Arial | 1.2 | 500 | MAIÚSCULA | 0 |
 
-Tamanhos existentes na escala: **8, 10, 12, 14, 15, 18, 24, 29, 41, 51px.** Nenhum outro.
+Tamanhos existentes na escala: **8, 10, 12, 14, 15, 18, 24, 29, 41, 51px.** Nenhum outro. As combinações exatas com peso e line-height estão na tabela abaixo.
 
 Regra de line-height: aperta conforme cresce. 1.2 em legenda → 1.0 em texto pequeno → 0.9 em display. **Nunca** suba o line-height do display para "dar respiro".
+
+#### Combinações medidas (`tokens/tokens.json` → `typography`)
+
+Estas são as **únicas** combinações tamanho + peso + line-height que existem. Escolha uma da tabela; não combine valores soltos.
+
+| Token | Família | Tamanho | Peso | Line-height | Uso recomendado |
+|---|---|---|---|---|---|
+| `xs` | Arial | 8px | 500 | 1.2 | Texto legal / compliance |
+| `xs-2` | Halyard | 10px | 500 | 1.2 | Rótulo vertical, tags, micro-créditos |
+| `xs-3` | Halyard | 12px | 500 | 1.1 | Nav, links, botões |
+| `xs-4` | Halyard | 12px | 500 | 1.09 | Rótulos em bloco de 2+ linhas |
+| `xs-5` | Halyard | 12px | 500 | 1.0 | Rótulos de uma linha, tagline |
+| `sm` / `sm-2` | Halyard | 14px | 500 | 1.2 | Wordmark da nav, botões maiores, inputs |
+| `base` | Halyard | 15px | 500 | 4 (= 60px) | **Não é line-height de texto.** É a altura de uma linha de interface medida no original (ex.: barra da nav). Use 15px com line-height 1.2 para texto, ou `height: 60px` para uma barra |
+| `lg` | Halyard | 18px | 500 | 1.09 | Subtítulo em 2+ linhas |
+| `lg-2` / `lg-4` | Halyard | 18px | 500 | 1.0 | Subtítulo de uma linha (`--text-subheading`) |
+| `lg-3` | Halyard | 18px | **400** | 1.33 | Descrição secundária curta (ver nota) |
+| `2xl` | Halyard | 24px | 500 | 1.09 | `heading-sm` |
+| `2xl-2` | Halyard | 29px | **400** | 1.26 | `body`, a voz descritiva principal |
+| `4xl` | Halyard | 41px | 500 | 0.9 | `heading` |
+| `5xl` | Halyard | 51px | 500 | 0.9 | `display` |
+
+**Nota sobre `lg-3` (18px / 400):** a medição mostra uma segunda combinação de peso 400, que o `DESIGN.md` não cita. A regra de voz continua valendo: peso 400 significa descrição. Use `lg-3` em caixa mista só para descrições curtas dentro de componentes (planos, cards de projeto, passos), onde 29px não cabe. Fora disso, rótulos continuam em MAIÚSCULA 500. Declare o uso ao usuário.
 
 ### 3.4 Espaçamento
 
@@ -392,6 +434,16 @@ Com Adobe Fonts (Halyard): use o kit do cliente. Sem ele, Inter:
 
 ### 11.2 CSS
 
+**Tokens:** copie `tokens/variables.css` para o projeto e importe antes de qualquer outro CSS. Logo depois dele, redefina a pilha da fonte com o substituto, senão, sem o kit da Adobe, o texto cai em `system-ui`:
+
+```css
+:root {
+  --font-halyard-display-variable: 'halyard-display-variable', 'Inter', 'Söhne', 'Neue Haas Grotesk', ui-sans-serif, system-ui, sans-serif;
+}
+```
+
+O bloco abaixo é a base completa (tokens resumidos + estilos globais + componentes). Se você já importou `variables.css`, pule o `:root` e use daqui para baixo; os nomes das variáveis batem com os do arquivo.
+
 ```css
 :root {
   /* Cores */
@@ -600,34 +652,17 @@ html, body {
 
 ### 11.4 Tailwind v4 (se o projeto usar Tailwind)
 
+Use `tokens/tailwind.css`, e não o `theme.css` sozinho. Ele já traz os tokens medidos mais três ajustes:
+1. apaga o tema padrão do Tailwind (cores, raios, sombras e pesos);
+2. coloca Inter como substituto na pilha da fonte;
+3. liga cada tamanho ao seu line-height (no v4, `--leading-*` gera uma classe separada, então `text-body` sozinho não traria o 1.26).
+
 ```css
-@theme {
-  --color-warm-cream: #ffedd7;
-  --color-walnut-shadow: #100904;
-  --color-bark-brown: #382416;
-  --color-cork-border: #40372e;
-  --color-driftwood: #6c5f51;
-  --color-ember-accent: #dc5000;
-  --color-pure-black: #000000;
-
-  --font-display: 'halyard-display-variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
-  --font-legal: Arial, system-ui, sans-serif;
-
-  --text-subheading: 18px; --text-subheading--line-height: 1;
-  --text-heading-sm: 24px; --text-heading-sm--line-height: 1.09;
-  --text-body: 29px;       --text-body--line-height: 1.26;
-  --text-heading: 41px;    --text-heading--line-height: 0.9;
-  --text-display: 51px;    --text-display--line-height: 0.9;
-
-  --radius-card: 12px;
-  --radius-ghost: 22.5px;
-  --radius-pill: 36px;
-
-  --shadow-*: initial;   /* remove todas as sombras do tema */
-}
+@import "tailwindcss";
+@import "./tailwind.css";
 ```
 
-Com Tailwind, **não** use as cores, raios e sombras padrão (`blue-500`, `rounded-lg`, `shadow-md`, `font-bold`). Só as classes geradas pelos tokens acima.
+Classes resultantes: `bg-walnut-shadow`, `text-warm-cream`, `border-cork-border`, `text-display`, `text-body`, `font-medium`, `rounded-pill`, `p-24`, `gap-18` etc. O tema padrão foi apagado, então `blue-500`, `rounded-lg`, `shadow-md` e `font-bold` deixam de existir e o build não gera essas classes.
 
 ---
 
