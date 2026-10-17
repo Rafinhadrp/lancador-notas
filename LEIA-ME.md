@@ -83,6 +83,17 @@ Pronto. Deixe o programa aberto com o formulário na tela. O que chegar do celul
 
 **Parar na hora:** aperte **F10** ou jogue o mouse no canto superior esquerdo da tela. A nota volta para a fila e o programa fica pausado.
 
+## Atualizar o programa do PC
+A partir da versão 1.2.0, o programa avisa sozinho quando sai uma versão nova: aparece **"Nova versão disponível · Atualizar"** no Início. Clique e ele baixa, fecha e abre de novo já atualizado (login e ajustes continuam).
+
+## Consultas de veículo (Detran e IPVA)
+1. No celular, aba **Consultas**: fotografe o recibo (ou use **Colar lista de placas**), confira placa e Renavam e envie.
+2. No PC, na janela do navegador do Lançador, faça login no **Detran** e no **IPVA** (gov.br e captcha) quando ele pedir.
+3. O programa consulta sozinho, salva cada resultado em PDF em `Documentos\Consultas Lançador` (muda em Ajustes) e, se ligado, imprime.
+4. Quando um site desconectar, o programa avisa ("Faça login de novo no Detran") e continua sozinho depois do login.
+
+> Rode de novo o `supabase/schema.sql` no Supabase depois de atualizar (ele cria a tabela de consultas e não apaga nada).
+
 ## Segurança
 - Cada pessoa vê **só as próprias notas**. O administrador vê todas.
 - Ninguém consegue virar admin, mexer na nota de outro ou criar usuário pelo navegador. Tudo isso é bloqueado no banco (RLS).

@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 
 import requests
 
-VERSAO = "1.2.0"
+VERSAO = "1.3.0"
 
 
 def agora_iso():
@@ -173,6 +173,48 @@ class Central:
         return self.rest("GET", "notas", params={
             "user_id": f"eq.{self.user_id}", "order": "id.desc", "limit": str(limite), "select": "*",
         }) or []
+
+    # ------------------------------------------------------------ consultas de veículo (Detran / IPVA)
+    def proxima_consulta(self, sites_livres):
+        """Pega a consulta mais antiga na fila que tenha algo a fazer nos sites livres (sem login pendente)."""
+        if not sites_livres:
+            return None
+        params = {"user_id": f"eq.{self.user_id}", "status": "eq.pendente",
+                  "order": "id.asc", "limit": "1", "select": "*"}
+        if set(sites_livres) == {"detran"}:
+            params["detran_status"] = "neq.ok"
+        elif set(sites_livres) == {"ipva"}:
+            params["ipva_status"] = "neq.ok"
+        fila = self.rest("GET", "consultas", params=params)
+        if not fila:
+            return None
+        c = fila[0]
+        pegou = self.rest(
+            "PATCH", "consultas",
+            params={"id": f"eq.{c['id']}", "status": "eq.pendente"},
+            json={"status": "consultando", "maquina": self.maquina},
+            prefer="return=representation",
+        )
+        return pegou[0] if pegou else None
+
+    def tem_consulta_pendente(self):
+        return bool(self.rest("GET", "consultas", params={
+            "user_id": f"eq.{self.user_id}", "status": "eq.pendente", "limit": "1", "select": "id"}))
+
+    def atualizar_consulta(self, consulta_id, campos):
+        self.rest("PATCH", "consultas", params={"id": f"eq.{consulta_id}"}, json=campos, prefer="return=minimal")
+
+    def recuperar_consultas_presas(self):
+        """Consultas que ficaram 'consultando' porque o programa foi fechado no meio: voltam para a fila."""
+        self.rest("PATCH", "consultas",
+                  params={"user_id": f"eq.{self.user_id}", "status": "eq.consultando"},
+                  json={"status": "pendente", "mensagem": ""}, prefer="return=minimal")
+
+    def contar_consultas(self, status, desde_iso=None):
+        params = {"user_id": f"eq.{self.user_id}", "status": f"eq.{status}", "select": "id"}
+        if desde_iso:
+            params["concluido_em"] = f"gte.{desde_iso}"
+        return self.rest("GET", "consultas", params=params) or []
 
     # ------------------------------------------------------------ escolha do veículo
     def escolher_veiculo(self, png_b64, placa, largura, altura):

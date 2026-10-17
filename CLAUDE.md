@@ -6,21 +6,24 @@ Responda sempre em **português**. O dono do projeto é o Rafael (marca **Rafinh
 A equipe fotografa no celular notas de oficinas e autopeças. O Claude lê a nota, a pessoa confere e o **programa do PC dela** preenche o lançamento no sistema web **Autos 360** (tela "Nova Receita e Despesa de Veículo"). Esse sistema **não tem API**: o preenchimento é feito simulando mouse e teclado (pyautogui).
 
 ## Arquitetura
-- `index.html` + `assets/`: app do celular (PWA). Usa supabase-js pelo CDN, `assets/comum.js` (funções compartilhadas) e `assets/estilo.css` (tema escuro, azul da logo `#7db4f8`, fonte IBM Plex).
+- `index.html` + `assets/`: app do celular (PWA). Usa supabase-js pelo CDN, `assets/comum.js` (funções compartilhadas) e `assets/estilo.css` (tema escuro, azul da logo `#7db4f8`, fonte IBM Plex). Abas: **Notas**, **Consultas** (`assets/consultas.js`) e **Histórico**.
 - `admin.html`: painel do administrador (equipe, histórico geral, exportar CSV, download do .exe).
 - `api/` (funções do Vercel, Node, sem dependências):
   - `ler.js`: lê a foto com o Claude (tool use `registrar_nota`) e monta a descrição.
   - `veiculo.js`: recebe o print da lista de veículos e devolve a opção com a data mais recente e a coordenada Y dela.
   - `admin.js`: gerencia usuários com a chave secreta (inclui `primeiro_admin`).
+  - `ler-recibo.js`: lê placa e Renavam da foto do recibo (tool use `registrar_veiculos`, aceita vários veículos) e valida o dígito do Renavam.
   - `config.js`: devolve a URL e a chave anon do Supabase e o `LINK_PROGRAMA`.
   - `_lib.js`: funções compartilhadas.
-- `supabase/schema.sql`: tabelas `perfis`, `notas` (status: pendente → lancando → lancada/erro/cancelada) e `agentes` (batimento do PC), com RLS. Cada usuário vê só as próprias notas; o admin vê todas. É idempotente.
+- `supabase/schema.sql`: tabelas `perfis`, `notas` (status: pendente → lancando → lancada/erro/cancelada), `consultas` (pendente → consultando → pronta/erro/cancelada, com `detran_status`/`ipva_status` ''/ok/erro) e `agentes` (batimento do PC), com RLS. Cada usuário vê só as próprias notas; o admin vê todas. É idempotente.
 - `agente/` (programa do PC, Windows, customtkinter):
   - `lancador.py`: interface com as telas Início, Calibragem, Ajustes e Histórico.
   - `central.py`: REST do Supabase e login.
   - `automacao.py`: preenchimento com mouse e teclado.
   - O PC consulta a fila a cada ~1,2 s e "pega" a nota com um PATCH condicional (`status=eq.pendente`), para nunca lançar a mesma nota duas vezes.
 - `agente/navegador.py`: modo navegador (Playwright), ver abaixo.
+- `agente/consultas.py`: consultas no Detran e no IPVA (seletores na constante `SITES`), ver abaixo.
+- `agente/atualizador.py`: atualização automática pela release do GitHub, ver abaixo.
 - `.github/workflows/programa-pc.yml`: gera o `LancadorNotas.exe` (PyInstaller) e publica na release `programa`.
 - Login: o usuário vira o e-mail interno `usuario@lancador.local`. Os usuários são criados só pelo admin, sem cadastro público.
 
@@ -38,6 +41,23 @@ A equipe fotografa no celular notas de oficinas e autopeças. O Claude lê a not
 - Opção da lista: `EFY0980 - Fox - ... - Estoque - 14/04/2026 - Autoforte Veículos`. Escolhe a da placa com a maior data DD/MM/AAAA, sem IA.
 - Confirmação: toast `.p-toast-message-success` / `.p-toast-message-error`, ou formulário limpo. Clique manual em Salvar é detectado por um listener que grava no sessionStorage.
 - Testado só contra uma página que imita o formulário. **Ainda não testado no Autos 360 de verdade.**
+
+## Atualização automática do programa (agente/atualizador.py)
+- O repositório é **público** (decisão do Rafael; uso interno). Nunca colocar senha/chave no código.
+- O workflow publica na release `programa`: `LancadorNotas.exe` + `versao.json` (`versao` de `VERSAO` em `agente/central.py`, `obrigatoria` e `novidades` de `agente/versao.json`, `sha256`, `tamanho`).
+- **Para lançar uma versão**: subir `VERSAO`, editar `agente/versao.json` e rodar o workflow (ele roda sozinho em push na `main` com mudança em `agente/**`, ou manual).
+- O programa verifica ao abrir e a cada 1 h; mostra "Nova versão X disponível · Atualizar"; baixa para `%APPDATA%\LancadorNotas\atualizacao`, confere tamanho e sha256, espera a nota/consulta em andamento e troca o arquivo com `atualizar.bat` (espera o processo fechar, guarda `.old`, abre a nova com `PYINSTALLER_RESET_ENVIRONMENT=1`). Falha → `atualizacao_falhou.txt`, avisado na próxima abertura. `obrigatoria: true` bloqueia os lançamentos até atualizar.
+- Testado: verificação e download com hash contra o GitHub real. **Não testado**: a troca do arquivo no Windows.
+
+## Consultas de veículo (Detran + IPVA)
+- App: aba **Consultas** — foto do recibo (`/api/ler-recibo`) ou "Colar lista" (uma linha por veículo, placa e Renavam em qualquer ordem). Valida placa e dígito do Renavam (pesos 3,2,9,8,7,6,5,4,3,2; `(soma*10)%11%10`). Avisa placa já enviada hoje. Histórico com Detran/IPVA ok/erro e Reenviar.
+- PC: depois das notas (prioridade), pega a consulta mais antiga e consulta os sites que faltam, cada um numa aba fixa da janela do navegador do Lançador (abas reservadas, o lançamento de notas não usa).
+- URLs (logado): Detran `https://www.detran.sp.gov.br/detransp/pb/servicos/veiculos/consultar_debitos_restricoes?id=consultar_debitos_restricoes` (antes de preencher, clicar em **"Consultar veículos de outras pessoas"**, a conta é pessoal); IPVA `https://www3.fazenda.sp.gov.br/SIVEI/DebitosVinculados/Consulta`.
+- Captcha e login gov.br **só na entrada**; depois várias consultas seguidas. O site desconecta por tempo/quantidade. O programa **nunca** resolve captcha nem faz login: detecta login (URL gov.br/login, captcha, campo de senha, ou formulário sumiu), pausa só aquele site (`precisa_login`), traz a aba para frente, avisa no Início com som e retoma sozinho quando a aba volta ao domínio do site e o formulário aparece. Cada site tem status próprio, então nada é repetido nem pulado.
+- Resultado: seletor `resultado` (se definido) ou "formulário sumiu/URL mudou" ou "texto da página cresceu >300 caracteres". Erro: seletores `erro` com texto novo. PDF via CDP `Page.printToPDF` (se falhar, foto da página inteira em PDF) em `PLACA_DETRAN_AAAA-MM-DD.pdf` / `PLACA_IPVA_...pdf` na pasta de Ajustes (padrão `Documentos\Consultas Lançador`). "Imprimir automaticamente" abre o navegador com `--kiosk-printing` e chama `window.print()`.
+- Ajustes: pasta, intervalo entre consultas (3 s), espera do resultado (40 s), imprimir automaticamente. Início: cartão "Consultas" com fila/prontas, "Pausar consultas" e "Pular consulta"; F10 para.
+- **Seletores provisórios** (largos, por nome/id/placeholder/texto) em `SITES` no topo de `agente/consultas.py`. Falta o Rafael mandar o F12 dos campos placa, Renavam, botão Consultar, área de resultado e a tela de login de cada site.
+- Testado contra sites falsos locais (login com captcha, botão "outras pessoas", erro de Renavam, resultado na mesma página, sessão que expira depois de N consultas, Pular, F10, PDF por foto). **Não testado nos sites de verdade.**
 
 ## Regras de negócio (decididas com o usuário)
 - **Descrição**: `DD/MM ITEM 1 + ITEM 2 + ...` (data em DD/MM, sem ano), em maiúsculas e sem acento. Ex.: `10/09 ELRING COLA SILICONE ELRING PRETO 70GR + SINTECH BRONZINA BIELA FT 025 + VOX FILTRO OLEO FT`.
@@ -65,7 +85,8 @@ A equipe fotografa no celular notas de oficinas e autopeças. O Claude lê a not
 - APIs testadas com fetch simulado.
 - Telas testadas com Playwright e supabase simulado.
 - Automação testada com pyautogui simulado.
-- **Ainda não testado**: a interface do .exe rodando no Windows e o deploy real no Vercel/Supabase.
+- Deploy real no Vercel/Supabase e o .exe no Windows: em uso pelo Rafael desde 09/10/2026.
+- **Ainda não testado**: modo navegador e consultas nos sites de verdade; troca do arquivo na atualização automática.
 
 ## Ideias pendentes
 - Trava opcional de acesso só pelo IP público da empresa (a equipe usa a mesma internet).

@@ -1,4 +1,4 @@
 {
   "obrigatoria": false,
-  "novidades": "Atualização automática: o programa avisa quando sai uma versão nova e se atualiza com um clique."
+  "novidades": "Consultas de veículo: o programa consulta sozinho no Detran e no IPVA as placas enviadas pela aba Consultas do celular e salva o resultado em PDF."
 }

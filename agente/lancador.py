@@ -19,6 +19,7 @@ from automacao import CAMPOS, PADRAO, Automacao, Parado
 from central import VERSAO, Central, ErroCentral
 from navegador import AutomacaoNavegador, FormularioAusente, Navegador
 import atualizador
+from consultas import ORDEM as SITES_CONSULTA, SITES, Consultor
 
 try:
     import pyautogui
@@ -127,6 +128,9 @@ class Trabalhador(threading.Thread):
         self.ultimo_batimento = 0
         self.nav = None  # navegador controlado (modo navegador); só esta thread mexe nele
         self.em_tarefa = False  # True enquanto pega/lança uma nota (a atualização espera terminar)
+        self.consultor = None
+        self.consultas_off_ate = 0       # tabela de consultas ainda não criada: tenta de novo mais tarde
+        self.ultimo_teste_login = {}
 
     def modo_navegador(self):
         return self.app.config_.ajustes.get("modo") == "navegador"
@@ -136,9 +140,12 @@ class Trabalhador(threading.Thread):
         if self.nav and self.nav.aberto():
             return True
         try:
+            a = self.app.config_.ajustes
             if not self.nav:
-                self.nav = Navegador(PASTA_DADOS, log=self.log)
-            self.nav.abrir(self.app.config_.ajustes.get("url_formulario", ""))
+                self.nav = Navegador(PASTA_DADOS, log=self.log, imprimir_direto=bool(a.get("imprimir_consultas")))
+            self.nav.imprimir_direto = bool(a.get("imprimir_consultas"))
+            self.nav.abrir(a.get("url_formulario", ""))
+            self.consultor = None  # abas novas
             return True
         except Exception as e:
             self.log(f"✖ Não consegui abrir o navegador: {e}")
@@ -157,8 +164,19 @@ class Trabalhador(threading.Thread):
             central.recuperar_presas()
         except Exception:
             pass
+        try:
+            central.recuperar_consultas_presas()
+        except Exception:
+            pass
         while not self.app.encerrando.is_set() and not self.fim.is_set():
             try:
+                if self.app.reabrir_navegador.is_set():
+                    self.app.reabrir_navegador.clear()
+                    if self.nav and self.nav.aberto():
+                        self.log("Reabrindo o navegador com o novo ajuste de impressão…")
+                        self.nav.fechar()
+                        self.consultor = None
+                        self.garantir_navegador()
                 if self.app.pedido_navegador.is_set():
                     self.app.pedido_navegador.clear()
                     if self.garantir_navegador() and self.nav:
@@ -167,23 +185,29 @@ class Trabalhador(threading.Thread):
                     central.batimento(self.app.pausado.is_set())
                     self.ultimo_batimento = time.time()
                     self.ev("conexao", ok=True)
-                if self.app.pausado.is_set() or self.app.calibrando.is_set() or self.app.bloqueio_atualizacao.is_set():
+                if self.app.calibrando.is_set() or self.app.bloqueio_atualizacao.is_set():
                     time.sleep(0.4)
                     continue
-                if self.modo_navegador() and not (self.nav and self.nav.aberto()):
-                    if not self.garantir_navegador():
-                        time.sleep(10)
-                        continue
-                self.em_tarefa = True
-                try:
-                    nota = central.proxima_nota()
-                    if nota:
-                        self.processar(nota)
-                finally:
-                    self.em_tarefa = False
-                if not nota:
+                fez = False
+                # 1) notas (têm prioridade)
+                if not self.app.pausado.is_set():
+                    pronto = True
+                    if self.modo_navegador() and not (self.nav and self.nav.aberto()):
+                        pronto = self.garantir_navegador()
+                    if pronto:
+                        self.em_tarefa = True
+                        try:
+                            nota = central.proxima_nota()
+                            if nota:
+                                self.processar(nota)
+                                fez = True
+                        finally:
+                            self.em_tarefa = False
+                # 2) consultas de veículo
+                if not fez and not self.app.consultas_pausadas.is_set():
+                    fez = self.tentar_consulta()
+                if not fez:
                     time.sleep(1.2)
-                    continue
             except ErroCentral as e:
                 self.ev("conexao", ok=False, msg=str(e))
                 time.sleep(5)
@@ -193,6 +217,114 @@ class Trabalhador(threading.Thread):
                 time.sleep(5)
         if self.nav:
             self.nav.fechar()
+
+    # ------------------------------------------------------------ consultas (Detran / IPVA)
+    def pasta_consultas(self):
+        pasta = self.app.config_.ajustes.get("pasta_consultas") or os.path.join(
+            os.path.expanduser("~"), "Documents", "Consultas Lançador")
+        os.makedirs(pasta, exist_ok=True)
+        return pasta
+
+    def _verificar_logins(self):
+        """Site esperando login: quando a pessoa voltar logada, a consulta continua sozinha."""
+        c = self.consultor
+        for site in SITES_CONSULTA:
+            if not c.precisa_login[site] or time.time() - self.ultimo_teste_login.get(site, 0) < 6:
+                continue
+            self.ultimo_teste_login[site] = time.time()
+            try:
+                pg = c.aba(site)
+                dominio = SITES[site]["url"].split("/")[2].split(".", 1)[-1]
+                if c.pede_login(pg, SITES[site]) or dominio not in (pg.url or ""):
+                    continue  # ainda no gov.br / captcha: não mexe na aba
+                c.abrir_formulario(site, esperar=8)
+                c.precisa_login[site] = False
+                self.log(f"✔ {SITES[site]['nome']}: login feito, continuando as consultas.")
+                self.ev("login_ok", site=site)
+            except Exception:
+                pass
+
+    def tentar_consulta(self):
+        if time.time() < self.consultas_off_ate:
+            return False
+        central = self.central
+        try:
+            if not (self.nav and self.nav.aberto()):
+                if not central.tem_consulta_pendente() or not self.garantir_navegador():
+                    return False
+            if self.consultor is None:
+                self.consultor = Consultor(self.nav, self.app.config_.ajustes, log=self.log)
+            c = self.consultor
+            self._verificar_logins()
+            livres = [s for s in SITES_CONSULTA if not c.precisa_login[s]]
+            consulta = central.proxima_consulta(livres)
+        except ErroCentral as e:
+            if "consultas" in str(e):
+                self.consultas_off_ate = time.time() + 600
+                self.log("Consultas: o banco ainda não tem a tabela (rode o supabase/schema.sql atualizado).")
+                return False
+            raise
+        if not consulta:
+            return False
+
+        self.em_tarefa = True
+        self.ev("consultando", consulta=consulta)
+        self.log(f"🔎 {consulta['placa']} · Renavam {consulta['renavam']}")
+        c.parar.clear()
+        self.app.pular_consulta.clear()
+        self.app.automacao = c
+        try:
+            r = c.processar(consulta, livres, self.pasta_consultas())
+        except Parado:
+            self.app.automacao = None
+            self.em_tarefa = False
+            if self.app.pular_consulta.is_set():
+                self.app.pular_consulta.clear()
+                central.atualizar_consulta(consulta["id"], {"status": "erro", "mensagem": "Pulada no PC."})
+                self.log("↷ Consulta pulada.")
+                self.ev("consulta_fim")
+                return True
+            central.atualizar_consulta(consulta["id"], {"status": "pendente", "mensagem": ""})
+            self.app.consultas_pausadas.set()
+            self.log("■ Consultas paradas por você. A consulta voltou para a fila.")
+            self.ev("consultas_pausadas")
+            return True
+        except Exception as e:
+            self.app.automacao = None
+            self.em_tarefa = False
+            registrar(traceback.format_exc())
+            central.atualizar_consulta(consulta["id"], {"status": "erro", "mensagem": f"Erro no PC: {e}"})
+            self.log(f"✖ Erro na consulta: {e}")
+            self.ev("consulta_fim")
+            return True
+        self.app.automacao = None
+        self.em_tarefa = False
+
+        campos = {"detran_status": r["detran_status"], "ipva_status": r["ipva_status"],
+                  "arquivos": "\n".join(r["arquivos"]), "mensagem": " · ".join(r["mensagens"])}
+        if r["login"]:
+            nomes = " e ".join(SITES[s]["nome"] for s in r["login"])
+            campos["status"] = "pendente"
+            campos["mensagem"] = " · ".join(r["mensagens"] + [f"Esperando login no {nomes}"])
+            for s in r["login"]:
+                try:
+                    c.aba(s).bring_to_front()
+                except Exception:
+                    pass
+            self.ev("login_consulta", sites=r["login"])
+        elif "erro" in (r["detran_status"], r["ipva_status"]):
+            campos["status"] = "erro"
+            self.log(f"⚠ {consulta['placa']}: {campos['mensagem']}")
+        else:
+            campos["status"] = "pronta"
+            self.log(f"✔ {consulta['placa']}: consultas prontas.")
+        central.atualizar_consulta(consulta["id"], campos)
+        self.ev("consulta_fim")
+        try:
+            c._dormir(float(self.app.config_.ajustes.get("intervalo_consultas", 3)))
+        except Parado:
+            pass
+        return True
 
     def processar(self, nota):
         central, cfg = self.central, self.app.config_
@@ -313,6 +445,9 @@ class App(ctk.CTk):
         self.calibrando = threading.Event()
         self.pular = threading.Event()
         self.pedido_navegador = threading.Event()
+        self.consultas_pausadas = threading.Event()
+        self.pular_consulta = threading.Event()
+        self.reabrir_navegador = threading.Event()
         self.bloqueio_atualizacao = threading.Event()  # não pega notas novas (atualizando ou versão obrigatória)
         self.info_versao = None
         self.baixando_versao = False
@@ -561,6 +696,26 @@ class App(ctk.CTk):
         self.n_total = self._numero(nums, "0,00", "total hoje (R$)")
         self.n_fila = self._numero(nums, "0", "na fila")
 
+        cc = cartao(p)
+        cc.pack(fill="x", padx=32, pady=(0, 12))
+        linha_c = ctk.CTkFrame(cc, fg_color="transparent")
+        linha_c.pack(fill="x", padx=20, pady=14)
+        self.cs_ponto = rotulo(linha_c, "●", 22, cor=FAINT)
+        self.cs_ponto.pack(side="left", padx=(0, 12))
+        tx = ctk.CTkFrame(linha_c, fg_color="transparent")
+        tx.pack(side="left", fill="x", expand=True)
+        self.cs_titulo = rotulo(tx, "Consultas de veículo", 15, "bold", anchor="w")
+        self.cs_titulo.pack(fill="x")
+        self.cs_sub = rotulo(tx, "Consultas: 0 na fila · 0 prontas hoje", 12, cor=MUTED, anchor="w", justify="left", wraplength=520)
+        self.cs_sub.pack(fill="x")
+        ac = ctk.CTkFrame(linha_c, fg_color="transparent")
+        ac.pack(side="right")
+        self.b_pular_consulta = botao(ac, "Pular consulta", self.pular_consulta_agora, "normal")
+        self.b_pausar_consultas = botao(ac, "Retomar consultas" if self.consultas_pausadas.is_set() else "Pausar consultas",
+                                        self.alternar_pausa_consultas, "normal", width=150)
+        self.b_pausar_consultas.pack(side="right", padx=(8, 0))
+        self._cs_fila, self._cs_prontas, self._cs_logins = 0, 0, set()
+
         rotulo(p, "Atividade", 13, "bold", cor=MUTED, anchor="w").pack(fill="x", padx=32, pady=(4, 6))
         self.caixa_log = ctk.CTkTextbox(p, fg_color=SURFACE, border_color=BORDER, border_width=1, corner_radius=14,
                                         text_color=TEXT, font=ctk.CTkFont(family="Consolas" if FONTE == "Segoe UI" else "Courier", size=12))
@@ -610,6 +765,35 @@ class App(ctk.CTk):
         if self.trabalhador:
             self.trabalhador.ultimo_batimento = 0  # avisa o celular na hora
 
+    def alternar_pausa_consultas(self):
+        if self.consultas_pausadas.is_set():
+            self.consultas_pausadas.clear()
+            self.log("Consultas retomadas.")
+        else:
+            self.consultas_pausadas.set()
+            self.log("Consultas pausadas (as notas continuam).")
+        self.b_pausar_consultas.configure(text="Retomar consultas" if self.consultas_pausadas.is_set() else "Pausar consultas")
+        self.mostrar_consultas()
+
+    def pular_consulta_agora(self):
+        self.pular_consulta.set()
+        if self.automacao is not None and self.automacao.__class__.__name__ == "Consultor":
+            self.automacao.parar.set()
+
+    def mostrar_consultas(self, titulo=None, cor=None):
+        if not getattr(self, "cs_titulo", None) or not self.cs_titulo.winfo_exists():
+            return
+        resumo = f"Consultas: {self._cs_fila} na fila · {self._cs_prontas} prontas hoje"
+        if self._cs_logins:
+            nomes = " e ".join(SITES[s]["nome"] for s in SITES_CONSULTA if s in self._cs_logins)
+            titulo, cor = f"Faça login de novo no {nomes}", WARN
+            resumo = f"Entre com o gov.br na aba do {nomes} da janela do Lançador. As consultas continuam sozinhas. · " + resumo
+        elif self.consultas_pausadas.is_set():
+            titulo, cor = titulo or "Consultas pausadas", WARN
+        self.cs_titulo.configure(text=titulo or "Consultas de veículo")
+        self.cs_sub.configure(text=resumo)
+        self.cs_ponto.configure(text_color=cor or (OK if self._cs_fila else FAINT))
+
     def parar_agora(self):
         if self.automacao:
             self.automacao.parar.set()
@@ -624,7 +808,13 @@ class App(ctk.CTk):
                 inicio = datetime.now().astimezone().replace(hour=0, minute=0, second=0, microsecond=0)
                 lanc = self.central.contar("lancada", inicio.astimezone(timezone.utc).isoformat())
                 fila = self.central.contar("pendente")
-                self.eventos.put(("numeros", {"lanc": lanc, "fila": fila}))
+                extra = {}
+                try:
+                    extra["cs_fila"] = len(self.central.contar_consultas("pendente")) + len(self.central.contar_consultas("consultando"))
+                    extra["cs_prontas"] = len(self.central.contar_consultas("pronta", inicio.astimezone(timezone.utc).isoformat()))
+                except Exception:
+                    pass
+                self.eventos.put(("numeros", {"lanc": lanc, "fila": fila, **extra}))
             except Exception:
                 pass
         threading.Thread(target=tarefa, daemon=True).start()
@@ -832,6 +1022,26 @@ class App(ctk.CTk):
         ctk.CTkSwitch(c2, text="Abrir junto com o Windows", variable=self.sw_windows,
                       font=fonte(14), text_color=TEXT, progress_color=ACCENT).pack(anchor="w", padx=18, pady=(8, 16))
 
+        c3 = cartao(rolagem)
+        c3.pack(fill="x", padx=32, pady=(0, 12))
+        rotulo(c3, "Consultas de veículo (Detran e IPVA)", 14, "bold", anchor="w").pack(fill="x", padx=18, pady=(16, 2))
+        rotulo(c3, "Na janela do Lançador, faça login no Detran e no IPVA (gov.br). Depois as consultas que chegam do "
+                   "celular são feitas sozinhas e salvas em PDF nesta pasta.", 12, cor=FAINT, anchor="w", justify="left",
+               wraplength=640).pack(fill="x", padx=18)
+        lp = ctk.CTkFrame(c3, fg_color="transparent")
+        lp.pack(fill="x", padx=18, pady=(10, 4))
+        self.ent_pasta = entrada(lp)
+        self.ent_pasta.insert(0, a.get("pasta_consultas") or os.path.join(os.path.expanduser("~"), "Documents", "Consultas Lançador"))
+        self.ent_pasta.pack(side="left", fill="x", expand=True)
+        botao(lp, "Escolher…", self.escolher_pasta, "normal").pack(side="left", padx=(8, 0))
+        botao(lp, "Abrir pasta", self.abrir_pasta_consultas, "fantasma").pack(side="left", padx=(8, 0))
+        c = c3
+        deslizante("intervalo_consultas", "Intervalo entre consultas", "Pausa entre um veículo e outro (para o site não desconectar tão rápido).", 1, 15, 14)
+        deslizante("espera_resultado", "Espera do resultado", "Tempo máximo esperando o site mostrar o resultado.", 15, 90, 15)
+        self.sw_imprimir = ctk.BooleanVar(value=bool(a.get("imprimir_consultas")))
+        ctk.CTkSwitch(c3, text="Imprimir automaticamente na impressora padrão (reabre o navegador)", variable=self.sw_imprimir,
+                      font=fonte(14), text_color=TEXT, progress_color=ACCENT).pack(anchor="w", padx=18, pady=(8, 16))
+
         acoes = ctk.CTkFrame(rolagem, fg_color="transparent")
         acoes.pack(fill="x", padx=32)
         botao(acoes, "Salvar ajustes", self.salvar_ajustes, "primario").pack(side="left")
@@ -841,6 +1051,23 @@ class App(ctk.CTk):
 
         rotulo(rolagem, f"Central: {self.central.endereco}\nArquivos deste PC: {PASTA_DADOS}", 12, cor=FAINT,
                anchor="w", justify="left").pack(fill="x", padx=32, pady=(24, 24))
+
+    def escolher_pasta(self):
+        from tkinter import filedialog
+        pasta = filedialog.askdirectory(initialdir=self.ent_pasta.get() or os.path.expanduser("~"),
+                                        title="Pasta dos PDFs das consultas")
+        if pasta:
+            self.ent_pasta.delete(0, "end")
+            self.ent_pasta.insert(0, os.path.normpath(pasta))
+
+    def abrir_pasta_consultas(self):
+        pasta = self.ent_pasta.get().strip()
+        try:
+            os.makedirs(pasta, exist_ok=True)
+            if sys.platform.startswith("win"):
+                os.startfile(pasta)
+        except OSError as e:
+            self.aj_aviso.configure(text=f"Não consegui abrir: {e}", text_color=DANGER)
 
     def usar_navegador(self):
         """Liga o modo navegador (salvando) e abre a janela."""
@@ -856,9 +1083,14 @@ class App(ctk.CTk):
         a["selecao_veiculo"] = "teclado" if self.seg_sel.get() == "Teclado" else "clique"
         modo_antes = a.get("modo")
         a["modo"] = "navegador" if self.seg_modo.get() == "Navegador" else "mouse"
+        a["pasta_consultas"] = self.ent_pasta.get().strip()
+        imprimir_antes = bool(a.get("imprimir_consultas"))
+        a["imprimir_consultas"] = bool(self.sw_imprimir.get())
+        if a["imprimir_consultas"] != imprimir_antes:
+            self.reabrir_navegador.set()
         self.config_.salvar()
         self._definir_inicio_windows(bool(self.sw_windows.get()))
-        self.aj_aviso.configure(text="✔ Salvo")
+        self.aj_aviso.configure(text="✔ Salvo", text_color=OK)
         self.after(2500, lambda: self.aj_aviso.configure(text="") if self.aj_aviso.winfo_exists() else None)
         if a["modo"] != modo_antes:
             if a["modo"] == "navegador":
@@ -1000,8 +1232,39 @@ class App(ctk.CTk):
             self.n_lancadas.configure(text=str(len(d["lanc"])))
             self.n_total.configure(text=moeda(total))
             self.n_fila.configure(text=str(len(d["fila"])))
+            if d.get("cs_fila") is not None:
+                self._cs_fila, self._cs_prontas = d["cs_fila"], d["cs_prontas"]
+                self.mostrar_consultas()
         elif tipo == "historico":
             self.mostrar_historico(d["notas"])
+        elif tipo == "consultando":
+            c = d["consulta"]
+            self.b_pular_consulta.pack(side="right", padx=(8, 0))
+            self.mostrar_consultas(f"Consultando {c['placa']}…", WARN)
+        elif tipo == "consulta_fim":
+            if getattr(self, "b_pular_consulta", None) and self.b_pular_consulta.winfo_exists():
+                self.b_pular_consulta.pack_forget()
+            self.mostrar_consultas()
+            self.atualizar_numeros_rapido()
+        elif tipo == "consultas_pausadas":
+            self.b_pausar_consultas.configure(text="Retomar consultas")
+            self.b_pular_consulta.pack_forget()
+            self.mostrar_consultas()
+        elif tipo == "login_consulta":
+            self._cs_logins.update(d["sites"])
+            self.mostrar_consultas()
+            self.deiconify()
+            try:
+                if sys.platform.startswith("win"):
+                    import winsound
+                    winsound.MessageBeep(winsound.MB_ICONEXCLAMATION)
+                else:
+                    self.bell()
+            except Exception:
+                pass
+        elif tipo == "login_ok":
+            self._cs_logins.discard(d["site"])
+            self.mostrar_consultas()
         elif tipo == "versao":
             self.info_versao = d["info"]
             if d["info"].get("obrigatoria"):
@@ -1033,7 +1296,13 @@ class App(ctk.CTk):
                 inicio = datetime.now().astimezone().replace(hour=0, minute=0, second=0, microsecond=0)
                 lanc = self.central.contar("lancada", inicio.astimezone(timezone.utc).isoformat())
                 fila = self.central.contar("pendente")
-                self.eventos.put(("numeros", {"lanc": lanc, "fila": fila}))
+                extra = {}
+                try:
+                    extra["cs_fila"] = len(self.central.contar_consultas("pendente")) + len(self.central.contar_consultas("consultando"))
+                    extra["cs_prontas"] = len(self.central.contar_consultas("pronta", inicio.astimezone(timezone.utc).isoformat()))
+                except Exception:
+                    pass
+                self.eventos.put(("numeros", {"lanc": lanc, "fila": fila, **extra}))
             except Exception:
                 pass
         threading.Thread(target=tarefa, daemon=True).start()

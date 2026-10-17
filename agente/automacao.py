@@ -32,6 +32,11 @@ PADRAO = {
     "selecao_veiculo": "clique",
     "modo": "mouse",            # "mouse" (posições na tela) ou "navegador" (pelo código da página)
     "url_formulario": "",       # tela "Nova Receita e Despesa de Veículo" (guardada sozinha no modo navegador)
+    # consultas de veículo (Detran / IPVA)
+    "pasta_consultas": "",      # vazio = Documentos\Consultas Lançador
+    "intervalo_consultas": 3.0,
+    "espera_resultado": 40.0,
+    "imprimir_consultas": False,
     "recorte": {"esquerda": -200, "acima": 15, "largura": 750, "altura": 400},
 }
 

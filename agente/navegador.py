@@ -71,8 +71,10 @@ def escolher_opcao(textos, placa):
 class Navegador:
     """Janela do navegador controlada pelo programa."""
 
-    def __init__(self, pasta_dados, log=print, headless=False, executavel=None):
+    def __init__(self, pasta_dados, log=print, headless=False, executavel=None, imprimir_direto=False):
         self.pasta = os.path.join(pasta_dados, "navegador")
+        self.imprimir_direto = imprimir_direto  # --kiosk-printing: window.print() vai direto para a impressora padrão
+        self.abas_reservadas = set()  # abas das consultas (Detran/IPVA): o lançamento de notas não usa
         self.log = log
         self.headless = headless
         self.executavel = executavel
@@ -90,8 +92,9 @@ class Navegador:
         self.fechar()
         from playwright.sync_api import sync_playwright
         self._pw = sync_playwright().start()
+        args = ["--start-maximized"] + (["--kiosk-printing"] if self.imprimir_direto else [])
         opcoes = dict(user_data_dir=self.pasta, headless=self.headless, no_viewport=True,
-                      args=["--start-maximized"], locale="pt-BR")
+                      args=args, locale="pt-BR")
         erros = []
         canais = [None] if self.executavel else ["chrome", "msedge"]
         for canal in canais:
@@ -130,11 +133,14 @@ class Navegador:
             pass
         self.contexto = None
         self._pw = None
+        self.abas_reservadas = set()
 
     def pagina_formulario(self, url="", esperar=8.0, trazer=False, checar=lambda: None):
         """Acha a aba com o formulário. Se não achar e houver URL guardada, abre ela."""
         def procurar():
             for pg in reversed(self.contexto.pages):
+                if pg in self.abas_reservadas:
+                    continue
                 try:
                     if pg.locator(SEL_VEICULO).first.is_visible():
                         return pg
@@ -144,7 +150,8 @@ class Navegador:
 
         pg = procurar()
         if pg is None and url:
-            alvo = self.contexto.pages[-1] if self.contexto.pages else self.contexto.new_page()
+            livres = [pg for pg in self.contexto.pages if pg not in self.abas_reservadas]
+            alvo = livres[-1] if livres else self.contexto.new_page()
             try:
                 alvo.goto(url, wait_until="domcontentloaded", timeout=30000)
             except Exception:
