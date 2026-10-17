@@ -68,6 +68,10 @@ class SessaoExpirada(Exception):
     """O site pediu login de novo."""
 
 
+class SiteFora(Exception):
+    """O site não abriu (lento ou fora do ar): tenta de novo mais tarde, sem marcar erro na consulta."""
+
+
 class ErroSite(Exception):
     """O site respondeu com erro (Renavam não confere, veículo não encontrado, fora do ar...)."""
 
@@ -95,6 +99,7 @@ class Consultor:
         self.sites = sites or SITES
         self.abas = {}                                   # site -> página fixa
         self.precisa_login = {s: False for s in ORDEM}   # site pausado esperando login
+        self.fora_ate = {s: 0.0 for s in ORDEM}          # site que não abriu: só tenta de novo depois disso
         self.parar = threading.Event()
 
     # ------------------------------------------------------------ utilidades
@@ -109,16 +114,33 @@ class Consultor:
             time.sleep(0.05)
 
     def _visivel(self, pg, seletores):
+        # Sempre com tempo máximo: em página "carregando" (site que não responde), count()/is_visible()
+        # travam para sempre; wait_for(timeout) desiste sozinho.
         for sel in lista(seletores):
             try:
-                loc = pg.locator(sel)
-                n = min(loc.count(), 5)
-                for i in range(n):
-                    if loc.nth(i).is_visible():
-                        return loc.nth(i)
+                loc = pg.locator(f"{sel} >> visible=true").first
+                loc.wait_for(state="visible", timeout=60)
+                return loc
             except Exception:
                 pass
         return None
+
+    def _carregando(self, pg):
+        try:
+            pg.wait_for_load_state("load", timeout=300)
+            return False
+        except Exception:
+            return True
+
+    def _fechar_aba(self, site):
+        """Aba travada (site não respondeu): fecha e na próxima vez abre outra."""
+        pg = self.abas.pop(site, None)
+        if pg is not None:
+            self.nav.abas_reservadas.discard(pg)
+            try:
+                pg.close(run_before_unload=False)
+            except Exception:
+                pass
 
     def aba(self, site):
         pg = self.abas.get(site)
@@ -128,12 +150,14 @@ class Consultor:
             self.nav.abas_reservadas.add(pg)
         return pg
 
-    def pede_login(self, pg, cfg):
+    def pede_login(self, pg, cfg, so_url=False):
         try:
             if SINAIS_LOGIN_URL.search(pg.url or ""):
                 return True
         except Exception:
             pass
+        if so_url:
+            return False
         return self._visivel(pg, SINAIS_LOGIN_SEL) is not None and self._visivel(pg, cfg["placa"] + cfg["renavam"]) is None
 
     def formulario_pronto(self, site):
@@ -145,16 +169,18 @@ class Consultor:
             return self._visivel(pg, cfg["antes"]) is not None
         return alvo is not None
 
-    def abrir_formulario(self, site, esperar=20.0):
+    def abrir_formulario(self, site, esperar=30.0):
         """Vai para a tela de consulta e deixa os campos prontos. Levanta SessaoExpirada se pedir login."""
         cfg = self.sites[site]
         pg = self.aba(site)
         try:
-            pg.goto(cfg["url"], wait_until="domcontentloaded", timeout=45000)
-        except Exception as e:
-            if self.pede_login(pg, cfg):
+            # "commit": não espera a página inteira carregar (site lento); os campos são procurados abaixo
+            pg.goto(cfg["url"], wait_until="commit", timeout=30000)
+        except Exception:
+            if self.pede_login(pg, cfg, so_url=True):
                 raise SessaoExpirada()
-            raise ErroSite(f"o site não abriu ({e.__class__.__name__})")
+            self._fechar_aba(site)
+            raise SiteFora()
         fim = time.time() + esperar
         clicou_antes = False
         while time.time() < fim:
@@ -173,6 +199,9 @@ class Consultor:
             time.sleep(0.3)
         if self.pede_login(pg, cfg):
             raise SessaoExpirada()
+        if self._carregando(pg):
+            self._fechar_aba(site)
+            raise SiteFora()  # ainda carregando: lento, não é falta de login
         raise SessaoExpirada("sem_formulario")  # tratar como desconectado; a pessoa confere a tela
 
     def _preencher(self, pg, seletores, valor):
@@ -190,14 +219,14 @@ class Consultor:
         if el is None:
             return ""
         try:
-            t = re.sub(r"\s+", " ", el.inner_text()).strip()
+            t = re.sub(r"\s+", " ", el.inner_text(timeout=1000)).strip()
         except Exception:
             return ""
         return t[:300]
 
     def _tamanho_texto(self, pg):
         try:
-            return int(pg.evaluate("() => (document.body && document.body.innerText || '').length"))
+            return len(pg.locator("body").inner_text(timeout=1000))
         except Exception:
             return 0
 
@@ -282,6 +311,9 @@ class Consultor:
             except Exception:
                 continue  # página no meio da navegação
         else:
+            if self._carregando(pg):
+                self._fechar_aba(site)
+                raise SiteFora()  # o site travou depois do Consultar: tenta de novo mais tarde
             erro = self._texto_erro(pg, cfg)
             raise ErroSite(erro or "o site não mostrou o resultado a tempo")
 
@@ -294,11 +326,15 @@ class Consultor:
     def processar(self, consulta, sites_livres, pasta):
         """Consulta os sites que faltam. Devolve dict com o que mudou e se algum site pediu login."""
         r = {"detran_status": consulta.get("detran_status") or "", "ipva_status": consulta.get("ipva_status") or "",
-             "arquivos": [a for a in (consulta.get("arquivos") or "").split("\n") if a], "mensagens": [],
-             "login": []}
+             "arquivos": [a for a in (consulta.get("arquivos") or "").split("\n") if a],
+             # erros de uma rodada anterior (ex.: "Detran: Renavam não confere") continuam valendo
+             "mensagens": [m for m in (consulta.get("mensagem") or "").split(" · ")
+                           if any(m.startswith(self.sites[x]["nome"] + ":") and consulta.get(f"{x}_status") == "erro"
+                                  for x in ORDEM)],
+             "login": [], "fora": []}
         for site in ORDEM:
             chave = f"{site}_status"
-            if r[chave] == "ok" or site not in sites_livres:
+            if r[chave] in ("ok", "erro") or site not in sites_livres:  # erro só repete pelo "Reenviar"
                 continue
             nome = self.sites[site]["nome"]
             try:
@@ -306,6 +342,10 @@ class Consultor:
                 r[chave] = "ok"
                 r["arquivos"].append(arq)
                 self.log(f"   {nome}: ok → {os.path.basename(arq)}")
+            except SiteFora:
+                r["fora"].append(site)
+                self.fora_ate[site] = time.time() + 120
+                self.log(f"   {nome}: o site não abriu (lento ou fora do ar). Tento de novo em 2 minutos.")
             except SessaoExpirada as e:
                 r["login"].append(site)
                 self.precisa_login[site] = True

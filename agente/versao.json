@@ -1,4 +1,4 @@
 {
   "obrigatoria": false,
-  "novidades": "Consultas de veículo: o programa consulta sozinho no Detran e no IPVA as placas enviadas pela aba Consultas do celular e salva o resultado em PDF."
+  "novidades": "Consultas: a janela do Lançador agora abre os sites do Detran e do IPVA. Se um site não responder, o programa avisa e tenta de novo depois, sem travar."
 }

@@ -92,9 +92,13 @@ class Navegador:
         self.fechar()
         from playwright.sync_api import sync_playwright
         self._pw = sync_playwright().start()
-        args = ["--start-maximized"] + (["--kiosk-printing"] if self.imprimir_direto else [])
+        # Os sites do governo de SP seguram navegadores marcados como "automatizados" (o Rafael confirmou
+        # que no Chrome normal abre). A janela abre como um Chrome comum: sem a marca --enable-automation
+        # e sem navigator.webdriver. Login e captcha continuam sempre com a pessoa.
+        args = ["--start-maximized", "--disable-blink-features=AutomationControlled"]
+        args += ["--kiosk-printing"] if self.imprimir_direto else []
         opcoes = dict(user_data_dir=self.pasta, headless=self.headless, no_viewport=True,
-                      args=args, locale="pt-BR")
+                      args=args, locale="pt-BR", ignore_default_args=["--enable-automation"])
         erros = []
         canais = [None] if self.executavel else ["chrome", "msedge"]
         for canal in canais:

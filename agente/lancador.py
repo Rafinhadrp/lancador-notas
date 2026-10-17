@@ -256,7 +256,7 @@ class Trabalhador(threading.Thread):
                 self.consultor = Consultor(self.nav, self.app.config_.ajustes, log=self.log)
             c = self.consultor
             self._verificar_logins()
-            livres = [s for s in SITES_CONSULTA if not c.precisa_login[s]]
+            livres = [s for s in SITES_CONSULTA if not c.precisa_login[s] and time.time() >= c.fora_ate[s]]
             consulta = central.proxima_consulta(livres)
         except ErroCentral as e:
             if "consultas" in str(e):
@@ -302,16 +302,26 @@ class Trabalhador(threading.Thread):
 
         campos = {"detran_status": r["detran_status"], "ipva_status": r["ipva_status"],
                   "arquivos": "\n".join(r["arquivos"]), "mensagem": " · ".join(r["mensagens"])}
-        if r["login"]:
-            nomes = " e ".join(SITES[s]["nome"] for s in r["login"])
+        faltam = [s for s in SITES_CONSULTA if r[f"{s}_status"] == ""]
+        if faltam:
+            # algum site ainda sem resposta (login, fora do ar ou pausado): volta para a fila só com o que falta
+            avisos = []
+            if r["login"]:
+                avisos.append("Esperando login no " + " e ".join(SITES[s]["nome"] for s in r["login"]))
+            if r["fora"]:
+                avisos.append(" e ".join(SITES[s]["nome"] for s in r["fora"]) + " não abriu; tento de novo em instantes")
+            outros = [s for s in faltam if s not in r["login"] and s not in r["fora"]]
+            if outros:
+                avisos.append("Falta consultar no " + " e ".join(SITES[s]["nome"] for s in outros))
             campos["status"] = "pendente"
-            campos["mensagem"] = " · ".join(r["mensagens"] + [f"Esperando login no {nomes}"])
+            campos["mensagem"] = " · ".join(r["mensagens"] + avisos)
             for s in r["login"]:
                 try:
                     c.aba(s).bring_to_front()
                 except Exception:
                     pass
-            self.ev("login_consulta", sites=r["login"])
+            if r["login"]:
+                self.ev("login_consulta", sites=r["login"])
         elif "erro" in (r["detran_status"], r["ipva_status"]):
             campos["status"] = "erro"
             self.log(f"⚠ {consulta['placa']}: {campos['mensagem']}")
