@@ -14,6 +14,8 @@
     pc: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4.5" width="17" height="11.5" rx="2"/><path d="M9 20h6M12 16v4"/></svg>',
     download: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 10.5l5 5 5-5M5 20h14"/></svg>',
     recarregar: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3"/><path d="M19.5 4.5v4h-4"/></svg>',
+    busca: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6"/><path d="m15 15 5 5"/></svg>',
+    colar: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4.5" width="12" height="16" rx="2"/><path d="M9.5 4.5V3.5h5v1M9 10h6M9 13.5h6M9 17h4"/></svg>',
     vazio: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5h8l4 4v13H6z"/><path d="M14 3.5v4h4M9 12h6M9 15.5h4"/></svg>',
   };
 
@@ -186,6 +188,45 @@
         alerta: alertas.join(' '),
         chave: (inf.getAttribute('Id') || '').replace(/^NFe/, ''),
       };
+    },
+
+    // placa no padrão antigo (ABC1234) ou Mercosul (ABC1D23)
+    placaValida(p) {
+      return /^[A-Z]{3}\d[A-Z0-9]\d{2}$/.test(String(p || ''));
+    },
+
+    // Renavam com 11 dígitos e dígito verificador correto
+    renavamValido(r) {
+      r = String(r || '');
+      if (!/^\d{11}$/.test(r)) return false;
+      const pesos = [3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+      const soma = pesos.reduce((s, p, i) => s + p * Number(r[i]), 0);
+      return (soma * 10) % 11 % 10 === Number(r[10]);
+    },
+
+    // "123456789" -> "00123456789"
+    normalizarRenavam(r) {
+      const d = String(r || '').replace(/\D/g, '');
+      return d && d.length <= 11 ? d.padStart(11, '0') : d;
+    },
+
+    // lista colada: uma linha por veículo, placa e Renavam em qualquer ordem
+    lerLista(texto) {
+      return String(texto || '').split(/\r?\n/).map((linha) => {
+        const up = linha.toUpperCase();
+        const p = up.match(/(?:^|[^A-Z0-9])([A-Z]{3})[-\s]?(\d[A-Z0-9]\d{2})(?![A-Z0-9])/);
+        const resto = p ? up.replace(p[0], ' ') : up;
+        const r = resto.match(/\d{9,11}/);
+        return { placa: p ? p[1] + p[2] : '', renavam: r ? App.normalizarRenavam(r[0]) : '' };
+      }).filter((v) => v.placa || v.renavam);
+    },
+
+    STATUS_CONSULTA: {
+      pendente: 'Na fila',
+      consultando: 'Consultando…',
+      pronta: 'Pronta',
+      erro: 'Precisa de atenção',
+      cancelada: 'Cancelada',
     },
 
     STATUS: {

@@ -77,9 +77,41 @@
     <div id="listaNotas"></div>
   </main>
 
+  <!-- aba: consultas de veículo -->
+  <main class="pagina hidden" id="abaConsultas">
+    <section class="captura">
+      <div class="icone-camera" data-icone="busca"></div>
+      <h2>Consultar veículos</h2>
+      <p>Fotografe o recibo: o Claude lê a placa e o Renavam e o seu PC consulta no Detran e no IPVA.</p>
+      <div class="acoes">
+        <label class="btn primario" for="inputCameraRecibo"><span data-icone="camera"></span>Tirar foto</label>
+        <label class="btn" for="inputGaleriaRecibo"><span data-icone="galeria"></span>Galeria</label>
+        <button class="btn largo" id="btnColarLista" type="button"><span data-icone="colar"></span>Colar lista de placas</button>
+      </div>
+      <input id="inputCameraRecibo" type="file" accept="image/*" capture="environment">
+      <input id="inputGaleriaRecibo" type="file" accept="image/*" multiple>
+    </section>
+    <div class="cartao pilha hidden" id="caixaLista" style="margin-top:14px">
+      <label class="campo"><span>Uma linha por veículo: placa e Renavam (em qualquer ordem)</span>
+        <textarea class="entrada" id="textoLista" rows="6" placeholder="EFY0980 00123456789&#10;QNE1G48 98765432101"></textarea></label>
+      <div class="grade-2" style="grid-template-columns:1fr 1fr">
+        <button class="btn" id="btnCancelarLista" type="button">Cancelar</button>
+        <button class="btn primario" id="btnAdicionarLista" type="button">Adicionar</button>
+      </div>
+    </div>
+    <div id="listaConsultas"></div>
+    <h2 class="secao">Consultas recentes</h2>
+    <div class="resumo">
+      <div class="num"><b id="cFila">0</b><span>na fila</span></div>
+      <div class="num"><b id="cProntas">0</b><span>prontas hoje</span></div>
+      <div class="num"><b id="cErros">0</b><span>com erro</span></div>
+    </div>
+    <div class="cartao" style="padding:0" id="historicoConsultas"></div>
+  </main>
+
   <!-- aba: histórico -->
   <main class="pagina hidden" id="abaHistorico">
-    <h1>Histórico</h1>
+    <h1>Histórico das notas</h1>
     <p class="sub">Suas notas e o que o PC já lançou.</p>
     <div class="resumo">
       <div class="num"><b id="rLancadas">0</b><span>lançadas hoje</span></div>
@@ -93,14 +125,20 @@
     <div class="dentro"><button class="btn primario" id="btnEnviar"></button></div>
   </div>
 
+  <div class="barra-envio hidden" id="barraConsultas">
+    <div class="dentro"><button class="btn primario" id="btnEnviarConsultas"></button></div>
+  </div>
+
   <nav class="abas">
-    <button class="ativa" data-aba="abaLancar"><span data-icone="camera"></span>Lançar</button>
+    <button class="ativa" data-aba="abaLancar"><span data-icone="camera"></span>Notas</button>
+    <button data-aba="abaConsultas"><span data-icone="busca"></span>Consultas</button>
     <button data-aba="abaHistorico"><span data-icone="lista"></span>Histórico</button>
   </nav>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="/assets/comum.js"></script>
+<script src="/assets/consultas.js" defer></script>
 <script>
 (function () {
   const $ = (s) => document.querySelector(s);
@@ -166,8 +204,9 @@
   function irPara(aba) {
     abaAtual = aba;
     document.querySelectorAll('.abas button').forEach((x) => x.classList.toggle('ativa', x.dataset.aba === aba));
-    ['abaLancar', 'abaHistorico'].forEach((id) => $('#' + id).classList.toggle('hidden', id !== aba));
+    ['abaLancar', 'abaConsultas', 'abaHistorico'].forEach((id) => $('#' + id).classList.toggle('hidden', id !== aba));
     atualizarBarra();
+    window.Consultas && Consultas.mostrar(aba === 'abaConsultas');
     if (aba === 'abaHistorico') carregarHistorico();
     window.scrollTo({ top: 0 });
   }

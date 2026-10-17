@@ -35,6 +35,26 @@ create table if not exists public.notas (
 create index if not exists notas_fila_idx on public.notas (user_id, status, id);
 create index if not exists notas_data_idx on public.notas (criado_em desc);
 
+-- consultas de veículo (Detran + IPVA), feitas pelo programa do PC
+create table if not exists public.consultas (
+  id             bigint generated always as identity primary key,
+  user_id        uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  placa          text not null,
+  renavam        text not null,
+  status         text not null default 'pendente'
+                 check (status in ('pendente','consultando','pronta','erro','cancelada')),
+  detran_status  text not null default '' check (detran_status in ('','ok','erro')),
+  ipva_status    text not null default '' check (ipva_status in ('','ok','erro')),
+  mensagem       text not null default '',
+  arquivos       text not null default '',
+  maquina        text not null default '',
+  criado_em      timestamptz not null default now(),
+  concluido_em   timestamptz
+);
+
+create index if not exists consultas_fila_idx on public.consultas (user_id, status, id);
+create index if not exists consultas_placa_idx on public.consultas (placa, criado_em desc);
+
 -- "batimento" do programa de cada PC: mostra no celular se o PC está conectado
 create table if not exists public.agentes (
   user_id   uuid primary key default auth.uid() references auth.users(id) on delete cascade,
@@ -69,6 +89,22 @@ begin
   return new;
 end $$;
 
+create or replace function public.consultas_protege() returns trigger
+language plpgsql as $$
+begin
+  if new.user_id <> old.user_id then
+    raise exception 'Não é permitido trocar o dono da consulta';
+  end if;
+  if new.status in ('pronta','erro') and old.status not in ('pronta','erro') and new.concluido_em is null then
+    new.concluido_em := now();
+  end if;
+  return new;
+end $$;
+
+drop trigger if exists consultas_protege on public.consultas;
+create trigger consultas_protege before update on public.consultas
+  for each row execute function public.consultas_protege();
+
 drop trigger if exists notas_protege on public.notas;
 create trigger notas_protege before update on public.notas
   for each row execute function public.notas_protege();
@@ -78,6 +114,7 @@ create trigger notas_protege before update on public.notas
 alter table public.perfis  enable row level security;
 alter table public.notas   enable row level security;
 alter table public.agentes enable row level security;
+alter table public.consultas enable row level security;
 
 drop policy if exists perfis_ver on public.perfis;
 create policy perfis_ver on public.perfis for select
@@ -97,6 +134,19 @@ create policy notas_editar on public.notas for update
   using (user_id = auth.uid() and public.eh_ativo())
   with check (user_id = auth.uid());
 
+drop policy if exists consultas_ver on public.consultas;
+create policy consultas_ver on public.consultas for select
+  using (user_id = auth.uid() or public.eh_admin());
+
+drop policy if exists consultas_criar on public.consultas;
+create policy consultas_criar on public.consultas for insert
+  with check (user_id = auth.uid() and public.eh_ativo());
+
+drop policy if exists consultas_editar on public.consultas;
+create policy consultas_editar on public.consultas for update
+  using (user_id = auth.uid() and public.eh_ativo())
+  with check (user_id = auth.uid());
+
 drop policy if exists agentes_ver on public.agentes;
 create policy agentes_ver on public.agentes for select
   using (user_id = auth.uid() or public.eh_admin());
@@ -111,4 +161,5 @@ create policy agentes_atualizar on public.agentes for update
 
 grant select, insert, update on public.notas   to authenticated;
 grant select, insert, update on public.agentes to authenticated;
+grant select, insert, update on public.consultas to authenticated;
 grant select                 on public.perfis  to authenticated;
