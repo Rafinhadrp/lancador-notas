@@ -38,6 +38,21 @@ jobs:
           --collect-all playwright
           lancador.py
 
+      - name: Gerar versao.json (versão, hash e tamanho do .exe)
+        working-directory: agente
+        shell: python
+        run: |
+          import hashlib, json, os, re
+          versao = re.search(r'VERSAO = "([^"]+)"', open("central.py", encoding="utf-8").read()).group(1)
+          extra = json.load(open("versao.json", encoding="utf-8"))
+          exe = os.path.join("dist", "LancadorNotas.exe")
+          dados = open(exe, "rb").read()
+          info = {"versao": versao, "obrigatoria": bool(extra.get("obrigatoria")),
+                  "novidades": extra.get("novidades", ""),
+                  "sha256": hashlib.sha256(dados).hexdigest(), "tamanho": len(dados)}
+          json.dump(info, open(os.path.join("dist", "versao.json"), "w", encoding="utf-8"), ensure_ascii=False)
+          print(json.dumps(info))  # ASCII: o console do Windows pode não aceitar acentos
+
       - name: Guardar o .exe
         uses: actions/upload-artifact@v4
         with:
@@ -49,6 +64,8 @@ jobs:
         with:
           tag_name: programa
           name: Programa do PC
-          body: "Baixe o LancadorNotas.exe abaixo. Gerado automaticamente a cada atualização."
-          files: agente/dist/LancadorNotas.exe
+          body: "Baixe o LancadorNotas.exe abaixo. Gerado automaticamente a cada atualização. O programa (a partir da 1.2.0) avisa e se atualiza sozinho pelo versao.json."
+          files: |
+            agente/dist/LancadorNotas.exe
+            agente/dist/versao.json
           make_latest: true

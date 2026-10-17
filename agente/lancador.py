@@ -18,6 +18,7 @@ from PIL import Image
 from automacao import CAMPOS, PADRAO, Automacao, Parado
 from central import VERSAO, Central, ErroCentral
 from navegador import AutomacaoNavegador, FormularioAusente, Navegador
+import atualizador
 
 try:
     import pyautogui
@@ -125,6 +126,7 @@ class Trabalhador(threading.Thread):
         self.fim = threading.Event()
         self.ultimo_batimento = 0
         self.nav = None  # navegador controlado (modo navegador); só esta thread mexe nele
+        self.em_tarefa = False  # True enquanto pega/lança uma nota (a atualização espera terminar)
 
     def modo_navegador(self):
         return self.app.config_.ajustes.get("modo") == "navegador"
@@ -165,18 +167,23 @@ class Trabalhador(threading.Thread):
                     central.batimento(self.app.pausado.is_set())
                     self.ultimo_batimento = time.time()
                     self.ev("conexao", ok=True)
-                if self.app.pausado.is_set() or self.app.calibrando.is_set():
+                if self.app.pausado.is_set() or self.app.calibrando.is_set() or self.app.bloqueio_atualizacao.is_set():
                     time.sleep(0.4)
                     continue
                 if self.modo_navegador() and not (self.nav and self.nav.aberto()):
                     if not self.garantir_navegador():
                         time.sleep(10)
                         continue
-                nota = central.proxima_nota()
+                self.em_tarefa = True
+                try:
+                    nota = central.proxima_nota()
+                    if nota:
+                        self.processar(nota)
+                finally:
+                    self.em_tarefa = False
                 if not nota:
                     time.sleep(1.2)
                     continue
-                self.processar(nota)
             except ErroCentral as e:
                 self.ev("conexao", ok=False, msg=str(e))
                 time.sleep(5)
@@ -306,6 +313,9 @@ class App(ctk.CTk):
         self.calibrando = threading.Event()
         self.pular = threading.Event()
         self.pedido_navegador = threading.Event()
+        self.bloqueio_atualizacao = threading.Event()  # não pega notas novas (atualizando ou versão obrigatória)
+        self.info_versao = None
+        self.baixando_versao = False
         self.automacao = None
         self.trabalhador = None
         self.ocupado = False
@@ -424,6 +434,12 @@ class App(ctk.CTk):
         self.montar_principal()
         self.trabalhador = Trabalhador(self)
         self.trabalhador.start()
+        falha = atualizador.limpar_restos(PASTA_DADOS)
+        if falha:
+            self.log(f"⚠ {falha} Continuo na versão {VERSAO}.")
+        if not getattr(self, "_verificador", None):
+            self._verificador = threading.Thread(target=self._verificar_versao_loop, daemon=True)
+            self._verificador.start()
         threading.Thread(target=self._salvar_token_periodico, daemon=True).start()
         self.atualizar_numeros()
 
@@ -514,6 +530,10 @@ class App(ctk.CTk):
     # ------------------------------------------------------------ página: início
     def pag_inicio(self, p):
         self.cabecalho(p, "Início", "Deixe este programa aberto. Ele lança sozinho as notas que você manda pelo celular.")
+
+        self.area_faixa = ctk.CTkFrame(p, fg_color="transparent", height=1)
+        self.area_faixa.pack(fill="x", padx=32)
+        self.mostrar_faixa_versao()
 
         st = cartao(p)
         st.pack(fill="x", padx=32)
@@ -982,6 +1002,23 @@ class App(ctk.CTk):
             self.n_fila.configure(text=str(len(d["fila"])))
         elif tipo == "historico":
             self.mostrar_historico(d["notas"])
+        elif tipo == "versao":
+            self.info_versao = d["info"]
+            if d["info"].get("obrigatoria"):
+                self.bloqueio_atualizacao.set()
+                self.status("Atualização obrigatória", "Clique em Atualizar para continuar lançando.", WARN)
+            self.mostrar_faixa_versao()
+        elif tipo == "atual_progresso":
+            if getattr(self, "faixa_botao", None) and self.faixa_botao.winfo_exists():
+                self.faixa_botao.configure(text=d["texto"])
+        elif tipo == "atual_erro":
+            self.baixando_versao = False
+            if not (self.info_versao or {}).get("obrigatoria"):
+                self.bloqueio_atualizacao.clear()
+            self.log(f"✖ Atualização: {d['msg']}")
+            self.mostrar_faixa_versao(erro=d["msg"])
+        elif tipo == "atual_baixado":
+            self._esperar_e_aplicar(d["arquivo"])
         elif tipo == "cal_msg":
             self.cal_aviso.configure(text=d["msg"], text_color=d["cor"])
         elif tipo == "cal_pos":
@@ -1001,6 +1038,92 @@ class App(ctk.CTk):
                 pass
         threading.Thread(target=tarefa, daemon=True).start()
 
+    # ------------------------------------------------------------ atualização automática
+    def _verificar_versao_loop(self):
+        while not self.encerrando.is_set():
+            try:
+                info = atualizador.verificar(VERSAO)
+                if info and info.get("versao") != (self.info_versao or {}).get("versao"):
+                    registrar(f"Nova versão disponível: {info.get('versao')}")
+                    self.eventos.put(("versao", {"info": info}))
+            except Exception as e:
+                registrar(f"Não consegui verificar atualizações: {e}")
+            self.encerrando.wait(3600)
+
+    def mostrar_faixa_versao(self, erro=""):
+        area = getattr(self, "area_faixa", None)
+        if not area or not area.winfo_exists():
+            return
+        for w in area.winfo_children():
+            w.destroy()
+        info = self.info_versao
+        if not info:
+            return
+        c = ctk.CTkFrame(area, fg_color=SURFACE_2, border_color=ACCENT, border_width=1, corner_radius=14)
+        c.pack(fill="x", pady=(0, 12))
+        linha = ctk.CTkFrame(c, fg_color="transparent")
+        linha.pack(fill="x", padx=18, pady=12)
+        textos = ctk.CTkFrame(linha, fg_color="transparent")
+        textos.pack(side="left", fill="x", expand=True)
+        titulo = f"Nova versão {info['versao']} disponível" + (" · obrigatória" if info.get("obrigatoria") else "")
+        rotulo(textos, titulo, 15, "bold", cor=ACCENT, anchor="w").pack(fill="x")
+        sub = erro or info.get("novidades") or f"Você está na versão {VERSAO}."
+        rotulo(textos, sub, 12, cor=DANGER if erro else MUTED, anchor="w", justify="left", wraplength=560).pack(fill="x")
+        self.faixa_botao = botao(linha, "Baixando…" if self.baixando_versao else "Atualizar",
+                                 self.iniciar_atualizacao, "primario", width=140)
+        self.faixa_botao.pack(side="right")
+
+    def iniciar_atualizacao(self):
+        if self.baixando_versao or not self.info_versao:
+            return
+        if not getattr(sys, "frozen", False):
+            self.mostrar_faixa_versao(erro="A atualização automática só funciona no LancadorNotas.exe.")
+            return
+        self.baixando_versao = True
+        self.bloqueio_atualizacao.set()
+        info = self.info_versao
+        self.log(f"Baixando a versão {info['versao']}…")
+        self.mostrar_faixa_versao()
+
+        def progresso(feito, total):
+            txt = f"Baixando {feito * 100 // total}%" if total else f"Baixando {feito // 1048576} MB"
+            if txt != getattr(self, "_ult_prog", ""):
+                self._ult_prog = txt
+                self.eventos.put(("atual_progresso", {"texto": txt}))
+
+        def tarefa():
+            try:
+                arq = atualizador.baixar(info, os.path.join(PASTA_DADOS, "atualizacao"), progresso,
+                                         cancelar=self.encerrando)
+                registrar(f"Versão {info['versao']} baixada e conferida: {arq}")
+                self.eventos.put(("atual_baixado", {"arquivo": arq}))
+            except Exception as e:
+                registrar(traceback.format_exc())
+                self.eventos.put(("atual_erro", {"msg": str(e)}))
+        threading.Thread(target=tarefa, daemon=True).start()
+
+    def _esperar_e_aplicar(self, arquivo):
+        """Espera a nota em andamento terminar, dispara a troca do arquivo e fecha."""
+        t = self.trabalhador
+        if t and t.em_tarefa:
+            if getattr(self, "faixa_botao", None) and self.faixa_botao.winfo_exists():
+                self.faixa_botao.configure(text="Terminando a nota…")
+            self.after(500, lambda: self._esperar_e_aplicar(arquivo))
+            return
+        try:
+            atualizador.aplicar(arquivo, PASTA_DADOS)
+        except Exception as e:
+            registrar(traceback.format_exc())
+            self.eventos.put(("atual_erro", {"msg": f"Não consegui iniciar a troca do arquivo: {e}"}))
+            return
+        registrar(f"Atualizando de {VERSAO} para {self.info_versao.get('versao')}: fechando para trocar o arquivo.")
+        self.encerrando.set()
+        try:
+            self.config_.salvar()
+        except OSError:
+            pass
+        self.destroy()
+
     def fechar(self):
         if self.ocupado:
             from tkinter import messagebox
@@ -1018,12 +1141,15 @@ class App(ctk.CTk):
 
 def instancia_unica():
     """Impede abrir o programa duas vezes no mesmo PC."""
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    try:
-        s.bind(("127.0.0.1", 47613))
-        return s
-    except OSError:
-        return None
+    for _ in range(20):
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        try:
+            s.bind(("127.0.0.1", 47613))
+            return s
+        except OSError:
+            s.close()
+            time.sleep(0.5)
+    return None
 
 
 if __name__ == "__main__":
