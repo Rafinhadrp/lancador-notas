@@ -12,6 +12,9 @@
     },
     "api/ler-recibo.js": {
       "maxDuration": 60
+    },
+    "api/ler-contrato.js": {
+      "maxDuration": 60
     }
   },
   "headers": [

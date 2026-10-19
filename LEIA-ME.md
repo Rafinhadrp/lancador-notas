@@ -102,6 +102,12 @@ As consultas são feitas pela extensão **Lançador · Consultas** no seu Chrome
 
 > Rode de novo o `supabase/schema.sql` no Supabase depois de atualizar (ele cria a tabela de consultas e não apaga nada).
 
+## Avisos de recibo pelo WhatsApp (aba Recibos)
+1. Rode o `supabase/avisos.sql` no Supabase (uma vez).
+2. Atualize a extensão para a 1.1.0 (baixe o `LancadorConsultas.zip`, extraia por cima da pasta e clique em ↻ em `chrome://extensions`).
+3. Deixe o **WhatsApp Web** conectado e o **painel da extensão** aberto no Chrome.
+4. No celular, aba **Recibos**: escolha **Em nome de terceiro** ou **Em nome da loja**, fotografe os contratos daquela pilha, confira e toque em **Enviar**. A extensão manda as mensagens uma de cada vez, com uns 20 segundos entre um cliente e outro.
+
 ## Segurança
 - Cada pessoa vê **só as próprias notas**. O administrador vê todas.
 - Ninguém consegue virar admin, mexer na nota de outro ou criar usuário pelo navegador. Tudo isso é bloqueado no banco (RLS).

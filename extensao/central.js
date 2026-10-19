@@ -100,6 +100,35 @@ const Central = {
       { status: 'pendente' }, 'return=minimal');
   },
 
+  // ------------------------------------------------------------ avisos de recibo (WhatsApp)
+  async proximoAviso() {
+    const fila = await Central.rest('GET', 'avisos', { user_id: `eq.${Central.cfg.userId}`, status: 'eq.pendente', order: 'id.asc', limit: '1', select: '*' });
+    if (!fila || !fila.length) return null;
+    const pegou = await Central.rest('PATCH', 'avisos', { id: `eq.${fila[0].id}`, status: 'eq.pendente' },
+      { status: 'enviando', mensagem: '' }, 'return=representation');
+    return pegou && pegou[0] ? pegou[0] : null;
+  },
+
+  atualizarAviso(id, campos) {
+    return Central.rest('PATCH', 'avisos', { id: `eq.${id}` }, campos, 'return=minimal');
+  },
+
+  // aviso que ficou "enviando" (painel fechado no meio): NÃO reenvia sozinho, para não repetir mensagens
+  recuperarAvisos() {
+    return Central.rest('PATCH', 'avisos', { user_id: `eq.${Central.cfg.userId}`, status: 'eq.enviando' },
+      { status: 'erro', mensagem: 'O envio foi interrompido no meio. Confira no WhatsApp o que já foi e reenvie se precisar.' }, 'return=minimal');
+  },
+
+  async contarAvisos() {
+    const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+    const base = { user_id: `eq.${Central.cfg.userId}`, select: 'id' };
+    const [fila, enviados] = await Promise.all([
+      Central.rest('GET', 'avisos', { ...base, status: 'in.(pendente,enviando)' }),
+      Central.rest('GET', 'avisos', { ...base, status: 'eq.enviado', enviado_em: `gte.${hoje.toISOString()}` }),
+    ]);
+    return { fila: (fila || []).length, enviados: (enviados || []).length };
+  },
+
   async contar() {
     const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
     const base = { user_id: `eq.${Central.cfg.userId}`, select: 'id' };

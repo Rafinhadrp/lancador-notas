@@ -109,6 +109,45 @@
     <div class="cartao" style="padding:0" id="historicoConsultas"></div>
   </main>
 
+  <!-- aba: recibos (avisos pelo WhatsApp) -->
+  <main class="pagina hidden" id="abaRecibos">
+    <div class="segmentos largo-total" role="tablist">
+      <button data-tipo-recibo="terceiro">Em nome de terceiro</button>
+      <button data-tipo-recibo="loja">Em nome da loja</button>
+    </div>
+    <p class="sub" id="dicaTipo" style="margin:8px 2px 12px"></p>
+    <section class="captura">
+      <div class="icone-camera" data-icone="whats"></div>
+      <h2>Fotografe os contratos</h2>
+      <p>O Claude lê o cliente, o WhatsApp e o carro. Você confere e a extensão do Chrome manda as mensagens, uma de cada vez.</p>
+      <div class="acoes">
+        <label class="btn primario" for="inputCameraContrato"><span data-icone="camera"></span>Tirar foto</label>
+        <label class="btn" for="inputGaleriaContrato"><span data-icone="galeria"></span>Galeria</label>
+      </div>
+      <input id="inputCameraContrato" type="file" accept="image/*" capture="environment">
+      <input id="inputGaleriaContrato" type="file" accept="image/*" multiple>
+    </section>
+    <div id="listaRecibos"></div>
+    <details class="cartao textos-recibo">
+      <summary>Textos das mensagens</summary>
+      <p class="sub">Uma mensagem por linha (cada linha sai como uma mensagem separada). Use <b>{saudacao}</b> (Bom dia/Boa tarde/Boa noite), <b>{nome}</b>, <b>{modelo}</b> e <b>{atendente}</b> (seu primeiro nome).</p>
+      <label class="campo"><span>Mensagens do começo (todas as pilhas)</span><textarea class="entrada" id="txInicio" rows="4"></textarea></label>
+      <label class="campo"><span>Última mensagem — em nome de terceiro</span><textarea class="entrada" id="txTerceiro" rows="2"></textarea></label>
+      <label class="campo"><span>Última mensagem — em nome da loja</span><textarea class="entrada" id="txLoja" rows="2"></textarea></label>
+      <div class="grade-2" style="grid-template-columns:1fr 1fr;margin-top:10px">
+        <button class="btn" id="btnPadraoTextos" type="button">Voltar ao padrão</button>
+        <button class="btn primario" id="btnSalvarTextos" type="button">Salvar textos</button>
+      </div>
+    </details>
+    <h2 class="secao">Avisos recentes</h2>
+    <div class="resumo">
+      <div class="num"><b id="avFila">0</b><span>na fila</span></div>
+      <div class="num"><b id="avEnviados">0</b><span>enviados hoje</span></div>
+      <div class="num"><b id="avErros">0</b><span>com erro</span></div>
+    </div>
+    <div class="cartao" style="padding:0" id="historicoRecibos"></div>
+  </main>
+
   <!-- aba: histórico -->
   <main class="pagina hidden" id="abaHistorico">
     <h1>Histórico das notas</h1>
@@ -129,9 +168,14 @@
     <div class="dentro"><button class="btn primario" id="btnEnviarConsultas"></button></div>
   </div>
 
+  <div class="barra-envio hidden" id="barraRecibos">
+    <div class="dentro"><button class="btn primario" id="btnEnviarRecibos"></button></div>
+  </div>
+
   <nav class="abas">
     <button class="ativa" data-aba="abaLancar"><span data-icone="camera"></span>Notas</button>
     <button data-aba="abaConsultas"><span data-icone="busca"></span>Consultas</button>
+    <button data-aba="abaRecibos"><span data-icone="whats"></span>Recibos</button>
     <button data-aba="abaHistorico"><span data-icone="lista"></span>Histórico</button>
   </nav>
 </div>
@@ -139,6 +183,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="/assets/comum.js"></script>
 <script src="/assets/consultas.js" defer></script>
+<script src="/assets/recibos.js" defer></script>
 <script>
 (function () {
   const $ = (s) => document.querySelector(s);
@@ -204,9 +249,10 @@
   function irPara(aba) {
     abaAtual = aba;
     document.querySelectorAll('.abas button').forEach((x) => x.classList.toggle('ativa', x.dataset.aba === aba));
-    ['abaLancar', 'abaConsultas', 'abaHistorico'].forEach((id) => $('#' + id).classList.toggle('hidden', id !== aba));
+    ['abaLancar', 'abaConsultas', 'abaRecibos', 'abaHistorico'].forEach((id) => $('#' + id).classList.toggle('hidden', id !== aba));
     atualizarBarra();
     window.Consultas && Consultas.mostrar(aba === 'abaConsultas');
+    window.Recibos && Recibos.mostrar(aba === 'abaRecibos');
     if (aba === 'abaHistorico') carregarHistorico();
     window.scrollTo({ top: 0 });
   }

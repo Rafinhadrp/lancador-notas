@@ -24,7 +24,7 @@ input:focus { outline: none; border-color: var(--accent); }
 .status .textos { flex: 1; } .status b { display: block; font-size: 18px; } .status span { color: var(--muted); font-size: 14px; }
 .ponto { width: 14px; height: 14px; border-radius: 50%; flex: none; background: var(--ok); }
 .ponto.warn { background: var(--warn); } .ponto.erro { background: var(--danger); }
-.numeros { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
+.numeros { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 12px; }
 .numeros b { display: block; font-size: 24px; font-family: Consolas, monospace; } .numeros span { color: var(--faint); font-size: 13px; }
 .dica { color: var(--faint); font-size: 13px; margin: 14px 2px 0; }
 .log { list-style: none; margin: 0; padding: 8px 14px; max-height: 360px; overflow: auto; font: 13px/1.5 Consolas, monospace; }
@@ -35,3 +35,5 @@ input:focus { outline: none; border-color: var(--accent); }
 .aviso { background: rgba(125,180,248,.12); color: var(--accent); border-radius: 10px; padding: 10px 14px; margin-bottom: 12px; }
 .aviso a { color: var(--text); }
 .rodape { text-align: center; color: var(--faint); font-size: 12px; margin-top: 28px; }
+
+@media (max-width: 720px) { .numeros { grid-template-columns: 1fr 1fr; } }

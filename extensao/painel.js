@@ -17,7 +17,10 @@ const estado = {
   precisaLogin: { detran: false, ipva: false },
   foraAte: { detran: 0, ipva: 0 },
   ultimoTesteLogin: { detran: 0, ipva: 0 },
-  ajustes: { pasta: 'Consultas Lançador', intervalo: 3, espera: 40 },
+  ajustes: { pasta: 'Consultas Lançador', intervalo: 3, espera: 40, intervaloWhats: 20 },
+  whatsLogin: false,          // WhatsApp Web pedindo o QR code: avisos pausados até a pessoa conectar
+  ultimoTesteWhats: 0,
+  avisosOff: 0,               // tabela de avisos ainda não criada: tenta de novo mais tarde
   atual: null,
 };
 
@@ -45,10 +48,11 @@ function status(titulo, sub, cor = 'ok') {
   $('#stPonto').className = 'ponto ' + cor;
 }
 function mostrarStatusLivre() {
+  if (estado.whatsLogin) return status('Conecte o WhatsApp Web', 'Na aba do WhatsApp, leia o QR code com o celular. Os avisos continuam sozinhos depois.', 'warn');
   const logins = ORDEM.filter((s) => estado.precisaLogin[s]).map((s) => SITES[s].nome);
   if (logins.length) return status(`Faça login no ${logins.join(' e ')}`, `Entre com o gov.br na aba do ${logins.join(' e do ')} (ela foi aberta). As consultas continuam sozinhas depois.`, 'warn');
   if (estado.pausado) return status('Pausado', 'Clique em Continuar para voltar a consultar.', 'warn');
-  status('Pronto', 'Esperando consultas do celular…', 'ok');
+  status('Pronto', 'Esperando consultas e avisos do celular…', 'ok');
 }
 async function atualizarNumeros() {
   try {
@@ -56,6 +60,11 @@ async function atualizarNumeros() {
     $('#nFila').textContent = n.fila;
     $('#nProntas').textContent = n.prontas;
   } catch (_) { /* sem conexão: tenta depois */ }
+  try {
+    const a = await Central.contarAvisos();
+    $('#nAvFila').textContent = a.fila;
+    $('#nAvEnviados').textContent = a.enviados;
+  } catch (_) { /* tabela de avisos ainda não criada */ }
 }
 function bip() {
   try {
@@ -330,16 +339,125 @@ async function cicloUma() {
   return true;
 }
 
+// ------------------------------------------------------------------ avisos de recibo pelo WhatsApp Web
+class SemWhats extends Error {}    // WhatsApp Web desconectado (QR code)
+
+const saudacao = (d = new Date()) => (d.getHours() < 12 ? 'Bom dia' : d.getHours() < 18 ? 'Boa tarde' : 'Boa noite');
+const sorteio = (min, max) => min + Math.random() * (max - min);
+
+async function abaWhats(criar = true) {
+  const id = estado.abas.whats;
+  if (id) { try { await chrome.tabs.get(id); return id; } catch (_) { /* fechada */ } }
+  let existente = null;
+  try { [existente] = await chrome.tabs.query({ url: WHATS_URL + '/*' }); } catch (_) { /* endereço de teste */ }
+  if (existente) { estado.abas.whats = existente.id; return existente.id; }
+  if (!criar) return null;
+  const atual = await chrome.tabs.getCurrent();
+  const t = await chrome.tabs.create({ url: WHATS_URL, active: false, windowId: atual ? atual.windowId : undefined });
+  estado.abas.whats = t.id;
+  return t.id;
+}
+
+async function abrirConversa(telefone) {
+  const tabId = await abaWhats();
+  try { await navegar(tabId, `${WHATS_URL}/send?phone=${telefone}`); } catch (_) { throw new Fora(); }
+  const fim = Date.now() + 60000;   // o WhatsApp Web demora para carregar
+  let info = null;
+  while (Date.now() < fim) {
+    checar();
+    await dormir(700);
+    info = await exec(tabId, waInspecionar, [], 4000);
+    if (!info) continue;
+    if (info.invalido) throw new ErroSite('esse número não tem WhatsApp ou está errado');
+    if (info.composer) return { tabId, info };
+    if (info.qr && !info.logado) throw new SemWhats();
+  }
+  throw new Fora();
+}
+
+async function enviarAviso(av) {
+  const { tabId } = await abrirConversa(av.telefone);
+  const msgs = (av.mensagens || []).map((m) => String(m).replace(/\{saudacao\}/g, saudacao()));
+  for (let i = 0; i < msgs.length; i++) {
+    checar();
+    const r = await exec(tabId, waEnviar, [msgs[i]], 15000);
+    if (!r || !r.ok) throw new ErroSite(`parou na mensagem ${i + 1} de ${msgs.length}: ${(r && r.motivo) || 'o WhatsApp não respondeu'}`);
+    await Central.atualizarAviso(av.id, { mensagem: `Enviadas ${i + 1} de ${msgs.length}` }).catch(() => {});
+    if (i < msgs.length - 1) await dormir(sorteio(3000, 6000));   // como uma pessoa digitando
+  }
+}
+
+async function cicloAviso() {
+  if (Date.now() < estado.avisosOff) return false;
+  if (estado.whatsLogin) {
+    if (Date.now() - estado.ultimoTesteWhats < 6000) return false;
+    estado.ultimoTesteWhats = Date.now();
+    const id = await abaWhats(false);
+    const info = id ? await exec(id, waInspecionar, [], 4000) : null;
+    if (!info || !info.logado) return false;
+    estado.whatsLogin = false;
+    log('✔ WhatsApp Web conectado, continuando os avisos.');
+  }
+  let av;
+  try { av = await Central.proximoAviso(); }
+  catch (e) {
+    if (/avisos/.test(e.message)) { estado.avisosOff = Date.now() + 600000; log('Avisos: o banco ainda não tem a tabela (rode o supabase/avisos.sql).'); return false; }
+    throw e;
+  }
+  if (!av) return false;
+  estado.atual = av;
+  $('#btnPular').hidden = false;
+  status(`Enviando aviso para ${av.nome}…`, `${av.modelo} · WhatsApp`, 'warn');
+  log(`💬 ${av.nome} (${av.modelo}) · ${av.tipo === 'loja' ? 'em nome da loja' : 'em nome de terceiro'}`);
+  try {
+    await enviarAviso(av);
+    await Central.atualizarAviso(av.id, { status: 'enviado', mensagem: '' });
+    log(`✔ Aviso enviado para ${av.nome}.`);
+  } catch (e) {
+    if (e instanceof Parado && estado.pular) {
+      estado.pular = false;
+      await Central.atualizarAviso(av.id, { status: 'erro', mensagem: 'Pulado no Chrome (confira no WhatsApp o que já foi).' });
+      log('↷ Aviso pulado.');
+    } else if (e instanceof Parado) {
+      await Central.atualizarAviso(av.id, { status: 'erro', mensagem: 'Pausado no meio do envio. Confira no WhatsApp o que já foi e reenvie se precisar.' });
+      log('■ Pausado.');
+    } else if (e instanceof SemWhats) {
+      estado.whatsLogin = true;
+      await Central.atualizarAviso(av.id, { status: 'pendente', mensagem: 'Esperando conectar o WhatsApp Web' });
+      log('   O WhatsApp Web pediu para ler o QR code.');
+      const id = await abaWhats(false);
+      if (id) { const t = await chrome.tabs.update(id, { active: true }); await chrome.windows.update(t.windowId, { focused: true }).catch(() => {}); }
+      bip();
+      chrome.notifications.create({ type: 'basic', iconUrl: 'icones/128.png', title: 'Lançador · Avisos', message: 'Conecte o WhatsApp Web (QR code). Os avisos continuam sozinhos depois.' });
+    } else if (e instanceof Fora) {
+      await Central.atualizarAviso(av.id, { status: 'pendente', mensagem: 'O WhatsApp Web não abriu; tento de novo em instantes' });
+      log('   O WhatsApp Web não abriu. Tento de novo em instantes.');
+      await pausa(30000);
+    } else {
+      await Central.atualizarAviso(av.id, { status: 'erro', mensagem: e.message });
+      log(`✖ ${av.nome}: ${e.message}`);
+    }
+  }
+  estado.atual = null;
+  $('#btnPular').hidden = true;
+  atualizarNumeros();
+  // intervalo entre um cliente e outro (variando um pouco, para não parecer robô)
+  const base = Math.max(10, Number(estado.ajustes.intervaloWhats) || 20) * 1000;
+  try { await dormir(sorteio(base * 0.8, base * 1.3)); } catch (_) { /* pausado */ }
+  return true;
+}
+
 async function laco() {
   if (estado.rodando) return;
   estado.rodando = true;
   try { await Central.recuperarPresas(); } catch (_) { /* tenta depois */ }
+  try { await Central.recuperarAvisos(); } catch (_) { /* tabela de avisos ainda não criada */ }
   let ultimoNumero = 0;
   while (estado.rodando) {
     try {
       if (Date.now() - ultimoNumero > 15000) { ultimoNumero = Date.now(); atualizarNumeros(); }
       if (estado.pausado) { mostrarStatusLivre(); await pausa(500); continue; }
-      const fez = await cicloUma();
+      const fez = (await cicloAviso()) || (await cicloUma());
       if (!fez) { mostrarStatusLivre(); await pausa(3000); }
     } catch (e) {
       if (e instanceof Parado) { estado.pular = false; continue; }
@@ -374,6 +492,7 @@ async function abrirPrincipal() {
   Object.assign(estado.ajustes, ajustes || {});
   $('#ajPasta').value = estado.ajustes.pasta;
   $('#ajIntervalo').value = estado.ajustes.intervalo;
+  $('#ajIntervaloWhats').value = estado.ajustes.intervaloWhats;
   $('#ajEspera').value = estado.ajustes.espera;
   try { const t = await chrome.tabs.getCurrent(); if (t) await chrome.tabs.update(t.id, { autoDiscardable: false }); } catch (_) {}
   log(`Extensão ${VERSAO} pronta. Deixe esta aba aberta.`);
@@ -408,6 +527,7 @@ $('#btnSair').onclick = async () => { estado.rodando = false; estado.pausado = t
 $('#btnSalvarAj').onclick = async () => {
   estado.ajustes.pasta = $('#ajPasta').value.trim() || 'Consultas Lançador';
   estado.ajustes.intervalo = Math.max(1, Math.min(60, Number($('#ajIntervalo').value) || 3));
+  estado.ajustes.intervaloWhats = Math.max(10, Math.min(300, Number($('#ajIntervaloWhats').value) || 20));
   estado.ajustes.espera = Math.max(15, Math.min(180, Number($('#ajEspera').value) || 40));
   await chrome.storage.local.set({ ajustes: estado.ajustes });
   $('#ajAviso').textContent = '✔ Salvo';
@@ -418,7 +538,7 @@ $('#versao').textContent = 'v' + VERSAO;
 
 (async () => {
   const { sitesTeste } = await chrome.storage.local.get('sitesTeste');   // só nos testes automáticos
-  if (sitesTeste) for (const k of Object.keys(sitesTeste)) Object.assign(SITES[k], sitesTeste[k]);
+  if (sitesTeste) for (const k of Object.keys(sitesTeste)) { if (k === 'whatsUrl') WHATS_URL = sitesTeste[k]; else Object.assign(SITES[k], sitesTeste[k]); }
   if (await Central.carregar()) {
     abrirPrincipal();
   } else {

@@ -36,10 +36,12 @@
     <button class="btn" id="btnPausar">Pausar</button>
   </section>
   <section class="numeros">
-    <div class="cartao"><b id="nFila">0</b><span>na fila</span></div>
+    <div class="cartao"><b id="nFila">0</b><span>consultas na fila</span></div>
     <div class="cartao"><b id="nProntas">0</b><span>prontas hoje</span></div>
+    <div class="cartao"><b id="nAvFila">0</b><span>avisos na fila</span></div>
+    <div class="cartao"><b id="nAvEnviados">0</b><span>avisos enviados hoje</span></div>
   </section>
-  <p class="dica">Deixe esta aba aberta. A extensão usa abas do Detran e do IPVA neste Chrome. Quando um site pedir login, entre com o gov.br na aba dele e as consultas continuam sozinhas. Os PDFs vão para a pasta <b>Downloads</b>, na subpasta escolhida em Ajustes.</p>
+  <p class="dica">Deixe esta aba aberta. A extensão usa abas do Detran e do IPVA neste Chrome. Quando um site pedir login, entre com o gov.br na aba dele e as consultas continuam sozinhas. Os PDFs vão para a pasta <b>Downloads</b>, na subpasta escolhida em Ajustes. Os avisos de recibo saem pelo <b>WhatsApp Web</b> deste Chrome, uma mensagem de cada vez.</p>
   <h2>Atividade</h2>
   <ul id="log" class="cartao log"></ul>
   <details class="cartao ajustes">
@@ -47,6 +49,7 @@
     <label>Pasta dentro de Downloads<input id="ajPasta"></label>
     <label>Intervalo entre consultas (segundos)<input id="ajIntervalo" type="number" min="1" max="60"></label>
     <label>Espera do resultado (segundos)<input id="ajEspera" type="number" min="15" max="180"></label>
+    <label>WhatsApp: intervalo entre um cliente e outro (segundos, mínimo 10)<input id="ajIntervaloWhats" type="number" min="10" max="300"></label>
     <div class="linha">
       <button class="btn primario" id="btnSalvarAj">Salvar</button>
       <button class="btn" id="btnAbrirPasta">Abrir Downloads</button>
@@ -59,6 +62,7 @@
 </main>
 
 <script src="sites.js"></script>
+<script src="whats.js"></script>
 <script src="central.js"></script>
 <script src="painel.js"></script>
 </body>

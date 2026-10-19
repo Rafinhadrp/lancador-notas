@@ -6,13 +6,14 @@ Responda sempre em **português**. O dono do projeto é o Rafael (marca **Rafinh
 A equipe fotografa no celular notas de oficinas e autopeças. O Claude lê a nota, a pessoa confere e o **programa do PC dela** preenche o lançamento no sistema web **Autos 360** (tela "Nova Receita e Despesa de Veículo"). Esse sistema **não tem API**: o preenchimento é feito simulando mouse e teclado (pyautogui).
 
 ## Arquitetura
-- `index.html` + `assets/`: app do celular (PWA). Usa supabase-js pelo CDN, `assets/comum.js` (funções compartilhadas) e `assets/estilo.css` (tema escuro, azul da logo `#7db4f8`, fonte IBM Plex). Abas: **Notas**, **Consultas** (`assets/consultas.js`) e **Histórico**.
+- `index.html` + `assets/`: app do celular (PWA). Usa supabase-js pelo CDN, `assets/comum.js` (funções compartilhadas) e `assets/estilo.css` (tema escuro, azul da logo `#7db4f8`, fonte IBM Plex). Abas: **Notas**, **Consultas** (`assets/consultas.js`), **Recibos** (`assets/recibos.js`) e **Histórico**.
 - `admin.html`: painel do administrador (equipe, histórico geral, exportar CSV, download do .exe).
 - `api/` (funções do Vercel, Node, sem dependências):
   - `ler.js`: lê a foto com o Claude (tool use `registrar_nota`) e monta a descrição.
   - `veiculo.js`: recebe o print da lista de veículos e devolve a opção com a data mais recente e a coordenada Y dela.
   - `admin.js`: gerencia usuários com a chave secreta (inclui `primeiro_admin`).
   - `ler-recibo.js`: lê placa e Renavam da foto do recibo (tool use `registrar_veiculos`, aceita vários veículos) e valida o dígito do Renavam.
+  - `ler-contrato.js`: lê do contrato o comprador (nome), telefones (normaliza para 55+DDD+número, descarta o da Autoforte 1633335399) e só o modelo do carro (`soModelo`: tira marca/versão, ex.: "VW/VOYAGE 1.6" → "Voyage").
   - `config.js`: devolve a URL e a chave anon do Supabase e o `LINK_PROGRAMA`.
   - `_lib.js`: funções compartilhadas.
 - `supabase/schema.sql`: tabelas `perfis`, `notas` (status: pendente → lancando → lancada/erro/cancelada), `consultas` (pendente → consultando → pronta/erro/cancelada, com `detran_status`/`ipva_status` ''/ok/erro) e `agentes` (batimento do PC), com RLS. Cada usuário vê só as próprias notas; o admin vê todas. É idempotente.
@@ -60,6 +61,16 @@ A equipe fotografa no celular notas de oficinas e autopeças. O Claude lê a not
 - Instalação: release `programa` tem `LancadorConsultas.zip` (pasta `LancadorConsultas/`); extrair, `chrome://extensions` → Modo do desenvolvedor → Carregar sem compactação. Versão em `extensao/manifest.json` (`versao.json` da release traz `extensao`; o painel avisa quando há nova, mas a troca é manual: extrair por cima e clicar em ↻).
 - O programa do PC **não faz mais consultas** por padrão (`ajustes.consultas_no_programa = False`); dá para religar em Ajustes.
 - Testado com Chromium + extensão carregada, central falsa (auth/REST) e sites falsos: login pedido e retomado, Renavam errado, sessão expirando, nada repetido. **Não testado nos sites de verdade.**
+
+## Avisos de recibo pelo WhatsApp (aba Recibos + extensão)
+- App, aba **Recibos**: escolhe a pilha **Em nome de terceiro** / **Em nome da loja** antes das fotos (fica salvo no aparelho), fotografa os contratos, confere nome (primeiro nome, vai na saudação), WhatsApp e modelo, vê a prévia em balões e envia para a tabela `avisos` (`supabase/avisos.sql`, também dentro do `schema.sql`). Avisa telefone já avisado nos últimos 30 dias. Histórico com Cancelar/Reenviar.
+- Mensagens (uma por linha, cada linha é uma mensagem separada), editáveis em "Textos das mensagens" (localStorage do aparelho). Padrão, decidido com o Rafael:
+  1. `{saudacao}, {nome}. Tudo bem?` 2. `Meu nome é {atendente}, da Autoforte Veículos.` 3. `Ficou pronta a documentação do {modelo} para você realizar a transferência.`
+  4. terceiro: `Pode passar na loja para retirar o recibo.` · loja: `Você pretende realizar a transferência de forma digital ou presencial?`
+  `{atendente}` = primeiro nome do usuário do app. `{saudacao}` fica guardado e é trocado na hora do envio (Bom dia < 12h, Boa tarde < 18h, Boa noite).
+- Extensão (`extensao/whats.js` + `cicloAviso` no painel, com prioridade sobre as consultas): abre `web.whatsapp.com/send?phone=…`, envia cada mensagem (insertText + botão Enviar) com 3–6 s entre elas e **20 s (±) entre clientes** (Ajustes do painel, mínimo 10). Número inválido → erro e segue. QR code → pausa os avisos, avisa e continua quando conectar. Aviso interrompido no meio vira "erro" (nunca reenvia sozinho, para não repetir mensagens).
+- **Risco combinado com o Rafael**: automação do WhatsApp Web não é autorizada pelo WhatsApp; ritmo lento e mensagens personalizadas reduzem o risco de bloqueio do número, mas não zeram.
+- Testado com Chromium + extensão e um WhatsApp Web falso (ordem e intervalo das mensagens, número inválido, QR code no meio). **Não testado no WhatsApp Web de verdade** (os seletores `footer div[contenteditable]`, `button[aria-label="Enviar"]`, `.message-out` podem mudar).
 
 ## Consultas de veículo (Detran + IPVA)
 - App: aba **Consultas** — foto do recibo (`/api/ler-recibo`) ou "Colar lista" (uma linha por veículo, placa e Renavam em qualquer ordem). Valida placa e dígito do Renavam (pesos 3,2,9,8,7,6,5,4,3,2; `(soma*10)%11%10`). Avisa placa já enviada hoje. Histórico com Detran/IPVA ok/erro e Reenviar.
