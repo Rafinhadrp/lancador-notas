@@ -87,10 +87,18 @@ Pronto. Deixe o programa aberto com o formulário na tela. O que chegar do celul
 A partir da versão 1.2.0, o programa avisa sozinho quando sai uma versão nova: aparece **"Nova versão disponível · Atualizar"** no Início. Clique e ele baixa, fecha e abre de novo já atualizado (login e ajustes continuam).
 
 ## Consultas de veículo (Detran e IPVA)
-1. No celular, aba **Consultas**: fotografe o recibo (ou use **Colar lista de placas**), confira placa e Renavam e envie.
-2. No PC, na janela do navegador do Lançador, faça login no **Detran** e no **IPVA** (gov.br e captcha) quando ele pedir.
-3. O programa consulta sozinho, salva cada resultado em PDF em `Documentos\Consultas Lançador` (muda em Ajustes) e, se ligado, imprime.
-4. Quando um site desconectar, o programa avisa ("Faça login de novo no Detran") e continua sozinho depois do login.
+As consultas são feitas pela extensão **Lançador · Consultas** no seu Chrome normal (o login do gov.br não funciona na janela do programa).
+
+**Instalar a extensão (uma vez por computador)**
+1. Baixe o `LancadorConsultas.zip` em **Releases → Programa do PC** e extraia numa pasta fixa (ex.: `Documentos\LancadorConsultas`). Não apague essa pasta depois.
+2. No Chrome, abra `chrome://extensions`, ligue **Modo do desenvolvedor** (canto superior direito) e clique em **Carregar sem compactação**. Escolha a pasta `LancadorConsultas`.
+3. Fixe a extensão (ícone de quebra-cabeça → alfinete) e clique nela → **Abrir o painel**. Entre com o mesmo usuário do app.
+
+**Usar**
+1. No celular, aba **Consultas**: fotografe o recibo (ou **Colar lista de placas**), confira e envie.
+2. Deixe a aba do **painel** aberta no Chrome. Ela abre abas do Detran e do IPVA, preenche placa e Renavam e salva cada resultado em PDF em `Downloads\Consultas Lançador`.
+3. Quando um site pedir login, a extensão avisa (som + notificação) e mostra a aba: entre com o gov.br e ela continua sozinha.
+4. Para imprimir tudo de uma vez: na pasta, selecione os PDFs → botão direito → **Imprimir**.
 
 > Rode de novo o `supabase/schema.sql` no Supabase depois de atualizar (ele cria a tabela de consultas e não apaga nada).
 

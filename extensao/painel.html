@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lançador · Consultas</title>
+<link rel="icon" href="icones/32.png">
+<link rel="stylesheet" href="painel.css">
+</head>
+<body>
+<header class="topo">
+  <img src="icones/48.png" alt="">
+  <div><b>Lançador · Consultas</b><small id="quem"></small></div>
+  <span class="espaco"></span>
+  <small id="versao" class="fraco"></small>
+</header>
+
+<main id="telaLogin" class="pagina" hidden>
+  <form id="formLogin" class="cartao pilha">
+    <h1>Entrar</h1>
+    <p class="fraco">Use o mesmo usuário do app do celular.</p>
+    <label>Endereço da central<input id="lgCentral" required spellcheck="false"></label>
+    <label>Usuário<input id="lgUsuario" required autocomplete="username" spellcheck="false"></label>
+    <label>Senha<input id="lgSenha" type="password" required autocomplete="current-password"></label>
+    <button class="btn primario" id="btnEntrar" type="submit">Entrar</button>
+    <div id="erroLogin" class="erro"></div>
+  </form>
+</main>
+
+<main id="telaPrincipal" class="pagina" hidden>
+  <div id="faixaVersao" class="aviso" hidden></div>
+  <section class="cartao status">
+    <span id="stPonto" class="ponto ok"></span>
+    <div class="textos"><b id="stTitulo">Pronto</b><span id="stSub">Esperando consultas do celular…</span></div>
+    <button class="btn" id="btnPular" hidden>Pular esta consulta</button>
+    <button class="btn" id="btnPausar">Pausar</button>
+  </section>
+  <section class="numeros">
+    <div class="cartao"><b id="nFila">0</b><span>na fila</span></div>
+    <div class="cartao"><b id="nProntas">0</b><span>prontas hoje</span></div>
+  </section>
+  <p class="dica">Deixe esta aba aberta. A extensão usa abas do Detran e do IPVA neste Chrome. Quando um site pedir login, entre com o gov.br na aba dele e as consultas continuam sozinhas. Os PDFs vão para a pasta <b>Downloads</b>, na subpasta escolhida em Ajustes.</p>
+  <h2>Atividade</h2>
+  <ul id="log" class="cartao log"></ul>
+  <details class="cartao ajustes">
+    <summary>Ajustes</summary>
+    <label>Pasta dentro de Downloads<input id="ajPasta"></label>
+    <label>Intervalo entre consultas (segundos)<input id="ajIntervalo" type="number" min="1" max="60"></label>
+    <label>Espera do resultado (segundos)<input id="ajEspera" type="number" min="15" max="180"></label>
+    <div class="linha">
+      <button class="btn primario" id="btnSalvarAj">Salvar</button>
+      <button class="btn" id="btnAbrirPasta">Abrir Downloads</button>
+      <span id="ajAviso" class="ok"></span>
+      <span class="espaco"></span>
+      <button class="btn fantasma" id="btnSair">Sair</button>
+    </div>
+  </details>
+  <p class="rodape">feito por <b>Rafinhadr</b></p>
+</main>
+
+<script src="sites.js"></script>
+<script src="central.js"></script>
+<script src="painel.js"></script>
+</body>
+</html>

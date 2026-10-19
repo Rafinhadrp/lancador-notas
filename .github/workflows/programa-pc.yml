@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: ["agente/**", ".github/workflows/programa-pc.yml"]
+    paths: ["agente/**", "extensao/**", ".github/workflows/programa-pc.yml"]
 
 permissions:
   contents: write
@@ -42,14 +42,21 @@ jobs:
         working-directory: agente
         shell: python
         run: |
-          import hashlib, json, os, re
+          import hashlib, json, os, re, zipfile
+          # extensão do Chrome: LancadorConsultas.zip com a pasta LancadorConsultas/ dentro
+          with zipfile.ZipFile(os.path.join("dist", "LancadorConsultas.zip"), "w", zipfile.ZIP_DEFLATED) as z:
+              for raiz, _, arquivos in os.walk(os.path.join("..", "extensao")):
+                  for a in arquivos:
+                      caminho = os.path.join(raiz, a)
+                      z.write(caminho, os.path.join("LancadorConsultas", os.path.relpath(caminho, os.path.join("..", "extensao"))))
+          versao_ext = json.load(open(os.path.join("..", "extensao", "manifest.json"), encoding="utf-8"))["version"]
           versao = re.search(r'VERSAO = "([^"]+)"', open("central.py", encoding="utf-8").read()).group(1)
           extra = json.load(open("versao.json", encoding="utf-8"))
           exe = os.path.join("dist", "LancadorNotas.exe")
           dados = open(exe, "rb").read()
           info = {"versao": versao, "obrigatoria": bool(extra.get("obrigatoria")),
                   "novidades": extra.get("novidades", ""),
-                  "sha256": hashlib.sha256(dados).hexdigest(), "tamanho": len(dados)}
+                  "sha256": hashlib.sha256(dados).hexdigest(), "tamanho": len(dados), "extensao": versao_ext}
           json.dump(info, open(os.path.join("dist", "versao.json"), "w", encoding="utf-8"), ensure_ascii=False)
           print(json.dumps(info))  # ASCII: o console do Windows pode não aceitar acentos
 
@@ -68,4 +75,5 @@ jobs:
           files: |
             agente/dist/LancadorNotas.exe
             agente/dist/versao.json
+            agente/dist/LancadorConsultas.zip
           make_latest: true

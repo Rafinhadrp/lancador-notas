@@ -24,6 +24,7 @@ A equipe fotografa no celular notas de oficinas e autopeças. O Claude lê a not
 - `agente/navegador.py`: modo navegador (Playwright), ver abaixo.
 - `agente/consultas.py`: consultas no Detran e no IPVA (seletores na constante `SITES`), ver abaixo.
 - `agente/atualizador.py`: atualização automática pela release do GitHub, ver abaixo.
+- `extensao/`: extensão do Chrome **"Lançador · Consultas"** (Manifest V3), que faz as consultas no Chrome normal da pessoa. Ver abaixo.
 - `.github/workflows/programa-pc.yml`: gera o `LancadorNotas.exe` (PyInstaller) e publica na release `programa`.
 - Login: o usuário vira o e-mail interno `usuario@lancador.local`. Os usuários são criados só pelo admin, sem cadastro público.
 
@@ -51,9 +52,18 @@ A equipe fotografa no celular notas de oficinas e autopeças. O Claude lê a not
 - O programa verifica ao abrir e a cada 1 h; mostra "Nova versão X disponível · Atualizar"; baixa para `%APPDATA%\LancadorNotas\atualizacao`, confere tamanho e sha256, espera a nota/consulta em andamento e troca o arquivo com `atualizar.bat` (espera o processo fechar, guarda `.old`, abre a nova com `PYINSTALLER_RESET_ENVIRONMENT=1`). Falha → `atualizacao_falhou.txt`, avisado na próxima abertura. `obrigatoria: true` bloqueia os lançamentos até atualizar.
 - Testado: verificação e download com hash contra o GitHub real. **Não testado**: a troca do arquivo no Windows.
 
+## Extensão do Chrome "Lançador · Consultas" (extensao/) — jeito atual das consultas
+- Motivo: o **login do gov.br não funciona na janela controlada pelo programa** (fica girando depois do CPF, confirmado pelo Rafael em 19/10/2026, mesmo sem a marca de automação). Não tentar contornar o gov.br.
+- `painel.html/js` (aba fixa que fica aberta): login com o usuário do app (`central.js`: `/api/config` + auth/REST do Supabase, token em `chrome.storage.local`), fila de consultas e o trabalho nas abas. `sites.js`: `SITES` (seletores provisórios, iguais aos do Python) e as funções injetadas com `chrome.scripting` (`pgInspecionar`, `pgClicarAntes`, `pgPreencher` com setter nativo + eventos, `pgClicarConsultar`). `relogio.js`: timer num Worker (abas em segundo plano têm timers freados). `popup` só abre o painel.
+- Mesma lógica do Python: login detectado → avisa (notificação + som), traz a aba e retoma sozinho; site que não abre → fecha a aba e tenta em 2 min; status por site; erro só repete pelo "Reenviar"; Pausar/Pular.
+- PDF: `chrome.debugger` + `Page.printToPDF` (aparece por um instante a faixa "começou a depurar") e `chrome.downloads` em `Downloads/<pasta de Ajustes>/PLACA_SITE_AAAA-MM-DD.pdf`.
+- Instalação: release `programa` tem `LancadorConsultas.zip` (pasta `LancadorConsultas/`); extrair, `chrome://extensions` → Modo do desenvolvedor → Carregar sem compactação. Versão em `extensao/manifest.json` (`versao.json` da release traz `extensao`; o painel avisa quando há nova, mas a troca é manual: extrair por cima e clicar em ↻).
+- O programa do PC **não faz mais consultas** por padrão (`ajustes.consultas_no_programa = False`); dá para religar em Ajustes.
+- Testado com Chromium + extensão carregada, central falsa (auth/REST) e sites falsos: login pedido e retomado, Renavam errado, sessão expirando, nada repetido. **Não testado nos sites de verdade.**
+
 ## Consultas de veículo (Detran + IPVA)
 - App: aba **Consultas** — foto do recibo (`/api/ler-recibo`) ou "Colar lista" (uma linha por veículo, placa e Renavam em qualquer ordem). Valida placa e dígito do Renavam (pesos 3,2,9,8,7,6,5,4,3,2; `(soma*10)%11%10`). Avisa placa já enviada hoje. Histórico com Detran/IPVA ok/erro e Reenviar.
-- PC: depois das notas (prioridade), pega a consulta mais antiga e consulta os sites que faltam, cada um numa aba fixa da janela do navegador do Lançador (abas reservadas, o lançamento de notas não usa).
+- PC (desligado por padrão, ver extensão acima): depois das notas (prioridade), pega a consulta mais antiga e consulta os sites que faltam, cada um numa aba fixa da janela do navegador do Lançador (abas reservadas, o lançamento de notas não usa).
 - URLs (logado): Detran `https://www.detran.sp.gov.br/detransp/pb/servicos/veiculos/consultar_debitos_restricoes?id=consultar_debitos_restricoes` (antes de preencher, clicar em **"Consultar veículos de outras pessoas"**, a conta é pessoal); IPVA `https://www3.fazenda.sp.gov.br/SIVEI/DebitosVinculados/Consulta`.
 - Captcha e login gov.br **só na entrada**; depois várias consultas seguidas. O site desconecta por tempo/quantidade. O programa **nunca** resolve captcha nem faz login: detecta login (URL gov.br/login, captcha, campo de senha, ou formulário sumiu), pausa só aquele site (`precisa_login`), traz a aba para frente, avisa no Início com som e retoma sozinho quando a aba volta ao domínio do site e o formulário aparece. Cada site tem status próprio, então nada é repetido nem pulado.
 - Resultado: seletor `resultado` (se definido) ou "formulário sumiu/URL mudou" ou "texto da página cresceu >300 caracteres". Erro: seletores `erro` com texto novo. PDF via CDP `Page.printToPDF` (se falhar, foto da página inteira em PDF) em `PLACA_DETRAN_AAAA-MM-DD.pdf` / `PLACA_IPVA_...pdf` na pasta de Ajustes (padrão `Documentos\Consultas Lançador`). "Imprimir automaticamente" abre o navegador com `--kiosk-printing` e chama `window.print()`.

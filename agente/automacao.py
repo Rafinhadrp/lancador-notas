@@ -37,6 +37,7 @@ PADRAO = {
     "intervalo_consultas": 3.0,
     "espera_resultado": 40.0,
     "imprimir_consultas": False,
+    "consultas_no_programa": False,  # padrão: as consultas são feitas pela extensão do Chrome (o gov.br recusa a janela controlada)
     "recorte": {"esquerda": -200, "acima": 15, "largura": 750, "altura": 400},
 }
 

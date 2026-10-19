@@ -248,6 +248,8 @@ class Trabalhador(threading.Thread):
                 pass
 
     def tentar_consulta(self):
+        if not self.app.config_.ajustes.get("consultas_no_programa"):
+            return False  # feitas pela extensão do Chrome
         if time.time() < self.consultas_off_ate:
             return False
         central = self.central
@@ -797,7 +799,11 @@ class App(ctk.CTk):
         if not getattr(self, "cs_titulo", None) or not self.cs_titulo.winfo_exists():
             return
         resumo = f"Consultas: {self._cs_fila} na fila · {self._cs_prontas} prontas hoje"
-        if self._cs_logins:
+        if not self.config_.ajustes.get("consultas_no_programa"):
+            self.b_pausar_consultas.pack_forget()
+            titulo = titulo if titulo and titulo.startswith("Consultando") else "Consultas pela extensão do Chrome"
+            cor = cor or (OK if self._cs_fila else FAINT)
+        elif self._cs_logins:
             nomes = " e ".join(SITES[s]["nome"] for s in SITES_CONSULTA if s in self._cs_logins)
             titulo, cor = f"Faça login de novo no {nomes}", WARN
             resumo = f"Entre com o gov.br na aba do {nomes} da janela do Lançador. As consultas continuam sozinhas. · " + resumo
@@ -1038,6 +1044,12 @@ class App(ctk.CTk):
         c3 = cartao(rolagem)
         c3.pack(fill="x", padx=32, pady=(0, 12))
         rotulo(c3, "Consultas de veículo (Detran e IPVA)", 14, "bold", anchor="w").pack(fill="x", padx=18, pady=(16, 2))
+        rotulo(c3, "O jeito recomendado é a extensão \"Lançador · Consultas\" no seu Chrome normal (o login do gov.br "
+                   "não funciona na janela controlada pelo programa). Ligue a opção abaixo só se quiser que ESTE programa "
+                   "faça as consultas.", 12, cor=WARN, anchor="w", justify="left", wraplength=640).pack(fill="x", padx=18, pady=(0, 6))
+        self.sw_consultas_prog = ctk.BooleanVar(value=bool(a.get("consultas_no_programa")))
+        ctk.CTkSwitch(c3, text="Fazer as consultas por este programa (em vez da extensão)", variable=self.sw_consultas_prog,
+                      font=fonte(14), text_color=TEXT, progress_color=ACCENT).pack(anchor="w", padx=18, pady=(0, 8))
         rotulo(c3, "Na janela do Lançador, faça login no Detran e no IPVA (gov.br). Depois as consultas que chegam do "
                    "celular são feitas sozinhas e salvas em PDF nesta pasta.", 12, cor=FAINT, anchor="w", justify="left",
                wraplength=640).pack(fill="x", padx=18)
@@ -1097,6 +1109,8 @@ class App(ctk.CTk):
         modo_antes = a.get("modo")
         a["modo"] = "navegador" if self.seg_modo.get() == "Navegador" else "mouse"
         a["pasta_consultas"] = self.ent_pasta.get().strip()
+        consultas_antes = bool(a.get("consultas_no_programa"))
+        a["consultas_no_programa"] = bool(self.sw_consultas_prog.get())
         imprimir_antes = bool(a.get("imprimir_consultas"))
         a["imprimir_consultas"] = bool(self.sw_imprimir.get())
         if a["imprimir_consultas"] != imprimir_antes:
@@ -1105,7 +1119,7 @@ class App(ctk.CTk):
         self._definir_inicio_windows(bool(self.sw_windows.get()))
         self.aj_aviso.configure(text="✔ Salvo", text_color=OK)
         self.after(2500, lambda: self.aj_aviso.configure(text="") if self.aj_aviso.winfo_exists() else None)
-        if a["modo"] != modo_antes:
+        if a["modo"] != modo_antes or a["consultas_no_programa"] != consultas_antes:
             if a["modo"] == "navegador":
                 self.pedido_navegador.set()
             self.montar_principal()
