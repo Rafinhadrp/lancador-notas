@@ -95,9 +95,12 @@ set w=0
 tasklist /FI "PID eq {pid}" /NH 2>nul | find " {pid} " >nul
 if errorlevel 1 goto pronto
 set /a w=w+1
-if %w% geq 60 goto pronto
+if %w% geq 30 goto matar
 ping -n 2 127.0.0.1 >nul
 goto espera
+:matar
+taskkill /PID {pid} /F >nul 2>&1
+ping -n 3 127.0.0.1 >nul
 :pronto
 set n=0
 :troca
@@ -146,7 +149,8 @@ def aplicar(exe_novo, pasta_dados):
     bat = os.path.join(pasta_dados, "atualizar.bat")
     with open(bat, "w", encoding="utf-8") as f:
         f.write(script_troca(exe_atual, exe_novo, arq_falha, pid))
-    flags = getattr(subprocess, "CREATE_NO_WINDOW", 0) | getattr(subprocess, "DETACHED_PROCESS", 0)
+    # só CREATE_NO_WINDOW: com DETACHED_PROCESS junto, cada comando do .bat (tasklist, find) abria uma janela preta
+    flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
     subprocess.Popen(["cmd", "/c", bat], creationflags=flags, env=ambiente_limpo(), close_fds=True,
                      cwd=os.path.dirname(exe_atual))
 

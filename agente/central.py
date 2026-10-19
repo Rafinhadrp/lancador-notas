@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 
 import requests
 
-VERSAO = "1.4.0"
+VERSAO = "1.4.1"
 
 
 def agora_iso():

@@ -1,4 +1,4 @@
 {
   "obrigatoria": false,
-  "novidades": "As consultas do Detran e do IPVA passam a ser feitas pela nova extensão do Chrome \"Lançador · Consultas\" (o gov.br não aceita a janela do programa). O programa continua com as notas."
+  "novidades": "A atualização automática passa a rodar escondida (sem a janela preta) e fecha o programa antigo por completo antes de trocar o arquivo."
 }

@@ -1418,7 +1418,18 @@ class App(ctk.CTk):
             self.config_.salvar()
         except OSError:
             pass
-        self.destroy()
+        self._fechar_para_atualizar(0)
+
+    def _fechar_para_atualizar(self, tentativas):
+        """Espera o Trabalhador fechar o navegador (até ~8 s) e sai de vez, para o .bat poder trocar o arquivo."""
+        t = self.trabalhador
+        if t and t.is_alive() and tentativas < 16:
+            self.after(500, lambda: self._fechar_para_atualizar(tentativas + 1))
+            return
+        try:
+            self.destroy()
+        finally:
+            os._exit(0)
 
     def fechar(self):
         if self.ocupado:
