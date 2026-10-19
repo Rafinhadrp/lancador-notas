@@ -1,4 +1,4 @@
 {
   "obrigatoria": false,
-  "novidades": "Consultas: a janela do Lançador agora abre os sites do Detran e do IPVA. Se um site não responder, o programa avisa e tenta de novo depois, sem travar."
+  "novidades": "Downloads da janela do Lançador (ex.: botão Imprimir do site) agora saem em PDF com o nome certo: em Downloads, ou na pasta das consultas com a placa no nome."
 }

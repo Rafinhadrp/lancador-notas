@@ -257,7 +257,10 @@ class Consultor:
     def consultar_site(self, site, placa, renavam, pasta):
         """Faz a consulta num site. Devolve o caminho do PDF. Levanta SessaoExpirada / ErroSite."""
         cfg = self.sites[site]
+        # download feito durante a consulta (ex.: botão "Imprimir" do site) sai como PLACA_SITE_data
+        base = os.path.splitext(nome_arquivo(pasta, placa, site))[0]
         pg = self.abrir_formulario(site)
+        self.nav.nome_por_aba[pg] = (pasta, os.path.basename(base) + "_SITE")
         url_form = pg.url
         if not self._preencher(pg, cfg["placa"], placa) and cfg["placa"]:
             self.log(f"   {cfg['nome']}: campo de placa não encontrado, seguindo só com o Renavam.")

@@ -207,7 +207,10 @@ class Trabalhador(threading.Thread):
                 if not fez and not self.app.consultas_pausadas.is_set():
                     fez = self.tentar_consulta()
                 if not fez:
-                    time.sleep(1.2)
+                    if self.nav and self.nav.aberto():
+                        self.nav.bombear(1.2)  # deixa salvar downloads feitos à mão na janela
+                    else:
+                        time.sleep(1.2)
             except ErroCentral as e:
                 self.ev("conexao", ok=False, msg=str(e))
                 time.sleep(5)

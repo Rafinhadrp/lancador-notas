@@ -75,6 +75,8 @@ class Navegador:
         self.pasta = os.path.join(pasta_dados, "navegador")
         self.imprimir_direto = imprimir_direto  # --kiosk-printing: window.print() vai direto para a impressora padrão
         self.abas_reservadas = set()  # abas das consultas (Detran/IPVA): o lançamento de notas não usa
+        self.nome_por_aba = {}        # aba da consulta -> (pasta, nome sem extensão) do download que sair dela
+        self.ultimo_download = ""
         self.log = log
         self.headless = headless
         self.executavel = executavel
@@ -116,6 +118,11 @@ class Navegador:
         self._fechado = False
         self.contexto.on("close", lambda *_: setattr(self, "_fechado", True))
         self.contexto.add_init_script(SCRIPT_CLIQUE)
+        # Na janela controlada, o Chrome guarda os downloads numa pasta temporária com nome aleatório e sem
+        # extensão. Cada download é salvo de verdade: em Downloads, com o nome certo (ou PLACA_SITE na consulta).
+        for pg in self.contexto.pages:
+            pg.on("download", self._baixou)
+        self.contexto.on("page", lambda pg: pg.on("download", self._baixou))
         pagina = self.contexto.pages[0] if self.contexto.pages else self.contexto.new_page()
         if url:
             try:
@@ -123,6 +130,41 @@ class Navegador:
             except Exception as e:
                 self.log(f"   Não consegui abrir {url}: {e}")
         self.log("Navegador do Lançador aberto. Faça login no Autos 360 nele e deixe a tela de lançamento aberta.")
+
+    def _baixou(self, download):
+        try:
+            nome = download.suggested_filename or "download"
+            ext = os.path.splitext(nome)[1]
+            info = self.nome_por_aba.get(download.page)
+            if info:
+                pasta, base = info
+                nome = base + (ext or ".pdf")
+            else:
+                pasta = os.path.join(os.path.expanduser("~"), "Downloads")
+            os.makedirs(pasta, exist_ok=True)
+            raiz, ext = os.path.splitext(os.path.join(pasta, nome))
+            caminho, n = raiz + ext, 2
+            while os.path.exists(caminho):
+                caminho, n = f"{raiz} ({n}){ext}", n + 1
+            download.save_as(caminho)
+            self.ultimo_download = caminho
+            self.log(f"   Download salvo: {caminho}")
+        except Exception as e:
+            self.log(f"   Não consegui salvar o download: {e}")
+
+    def bombear(self, segundos):
+        """Espera deixando o navegador entregar os eventos (downloads feitos à mão enquanto o programa está parado)."""
+        if not self.aberto():
+            time.sleep(segundos)
+            return
+        try:
+            pgs = self.contexto.pages
+            if pgs:
+                pgs[0].wait_for_timeout(int(segundos * 1000))
+                return
+        except Exception:
+            pass
+        time.sleep(segundos)
 
     def fechar(self):
         try:
