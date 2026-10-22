@@ -5,6 +5,8 @@
   .topo { display: flex; gap: 12px; align-items: center; margin-bottom: 12px; }
   .topo img { width: 64px; height: 64px; image-rendering: pixelated; flex: none; }
   b { display: block; margin-bottom: 2px; } p { color: #93a1b2; margin: 0; font-size: 13px; }
+  .sec { margin-top: 8px; background: transparent; color: #93a1b2; border: 1px solid #2e3d50; font-weight: 500; }
+  .sec:hover { color: #e8eef5; }
   button { width: 100%; background: #7db4f8; color: #06121f; border: 0; border-radius: 10px; padding: 10px; font: 600 14px inherit; cursor: pointer; font-family: inherit; }
 </style></head>
 <body>
@@ -13,5 +15,6 @@
     <div><b id="titulo">Lançador · Consultas</b><p id="sub">Consultas do Detran e do IPVA e avisos pelo WhatsApp.</p></div>
   </div>
   <button id="abrir">Abrir o painel</button>
+  <button id="mascoteSite" class="sec" hidden></button>
   <script src="popup.js"></script>
 </body></html>

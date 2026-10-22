@@ -302,7 +302,32 @@ td.acoes { white-space: nowrap; text-align: right; }
 .mascote { image-rendering: pixelated; image-rendering: crisp-edges; flex: none; }
 .mascote.mini { width: 40px; height: 40px; }
 .mascote.grande { display: block; width: 96px; height: 96px; margin: 0 auto 8px; }
-.login-caixa .mascote.grande { margin-top: -6px; }
+
 .vazio .mascote.grande { opacity: .9; margin-bottom: 4px; }
 .toast { display: flex; align-items: center; gap: 10px; }
 .toast .mascote.mini { width: 32px; height: 32px; }
+
+/* ---------- login com o mascote sentado na borda do cartão */
+.login-caixa h1 { margin-top: 0; }
+.cartao.com-poleiro { position: relative; margin-top: 92px; padding-top: 30px; }
+.poleiro { position: absolute; left: 50%; top: 0; transform: translate(-50%, -100px); width: 128px; height: 128px; pointer-events: none; }
+.mascote.sentado { width: 128px; height: 128px; filter: drop-shadow(0 8px 6px rgba(0, 0, 0, .35)); }
+.balao-oi {
+  position: absolute; left: 104px; top: 22px; white-space: nowrap;
+  background: var(--surface-2); color: var(--text); border: 1px solid var(--border-2);
+  font-size: 12.5px; font-weight: 600; padding: 5px 10px; border-radius: 12px 12px 12px 3px;
+  opacity: 0; transform: translateY(4px); animation: oi .5s .6s ease forwards;
+}
+.balao-oi:empty { display: none; }
+@keyframes oi { to { opacity: 1; transform: none; } }
+.login-caixa.carregando { text-align: center; }
+.mascote.heroi { display: block; width: 128px; height: 128px; margin: 0 auto 6px; }
+/* assinatura: a logo discreta junto do "feito por" */
+.assinatura { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 26px; color: var(--faint); font-size: 12px; letter-spacing: .04em; }
+.assinatura b { color: var(--muted); font-weight: 600; }
+.assinatura .logo-mini { height: 15px; width: auto; opacity: .55; transition: opacity .2s; }
+.assinatura:hover .logo-mini { opacity: .9; }
+
+.dica-extensao { margin: 12px 0 0 !important; font-size: 12.5px !important; color: var(--faint) !important; }
+.dica-extensao a { font-weight: 600; }
+.titulo-com-mascote { display: flex; gap: 14px; align-items: center; }

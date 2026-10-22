@@ -20,3 +20,23 @@ document.getElementById('abrir').onclick = async () => {
   }
   window.close();
 };
+
+// Mostrar/esconder o mascote no site da aba atual (só nos sites onde ele aparece)
+const SITES_MASCOTE = [/^app\.altimus\.com\.br$/, /^web\.whatsapp\.com$/, /\.detran\.sp\.gov\.br$/, /\.fazenda\.sp\.gov\.br$/];
+(async () => {
+  const [aba] = await chrome.tabs.query({ active: true, currentWindow: true });
+  let host = '';
+  try { host = new URL(aba.url).hostname; } catch { return; }
+  if (!SITES_MASCOTE.some((r) => r.test(host))) return;
+  const bt = document.getElementById('mascoteSite');
+  const pintar = (oculto) => { bt.textContent = oculto ? 'Mostrar o mascote neste site' : 'Esconder o mascote neste site'; };
+  let { mascoteOculto } = await chrome.storage.local.get('mascoteOculto');
+  mascoteOculto = mascoteOculto || {};
+  pintar(!!mascoteOculto[host]);
+  bt.hidden = false;
+  bt.onclick = async () => {
+    mascoteOculto = { ...mascoteOculto, [host]: !mascoteOculto[host] };
+    await chrome.storage.local.set({ mascoteOculto });
+    pintar(mascoteOculto[host]);
+  };
+})();

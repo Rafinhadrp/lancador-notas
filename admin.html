@@ -15,44 +15,44 @@
 <body>
 
 <div id="telaCarregando" class="login-tela">
-  <div class="login-caixa" style="text-align:center">
-    <img src="/assets/logo@2x.png" alt="Rafinhadr" class="logo-grande">
-    <img class="mascote grande" src="/assets/mascote/pensando.gif" alt="">
+  <div class="login-caixa carregando">
+    <img class="mascote heroi" src="/assets/mascote/pensando.gif" alt="">
     <p class="muted" id="msgCarregando">Conectando…</p>
+    <p class="assinatura"><img src="/assets/logo@2x.png" alt="Rafinhadr" class="logo-mini"><span>feito por <b>Rafinhadr</b></span></p>
   </div>
 </div>
 
 <!-- primeiro administrador -->
 <div id="telaPrimeiro" class="login-tela hidden">
   <form class="login-caixa" id="formPrimeiro">
-    <img src="/assets/logo@2x.png" alt="Rafinhadr" class="logo-grande">
-    <img class="mascote grande" src="/assets/mascote/acenando.gif" alt="">
     <h1>Bem-vindo</h1>
     <p class="sub">Crie o administrador. Ele cadastra o resto da equipe.</p>
-    <div class="cartao pilha">
+    <div class="cartao pilha com-poleiro">
+      <div class="poleiro"><img class="mascote sentado" src="/assets/mascote/acenando.gif" alt="" data-mascote-login><span class="balao-oi" data-saudacao></span></div>
       <label class="campo"><span>Seu nome</span><input class="entrada" name="nome" required></label>
       <label class="campo"><span>Usuário (para entrar)</span><input class="entrada" name="usuario" autocapitalize="none" spellcheck="false" required placeholder="ex.: rafael"></label>
       <label class="campo"><span>Senha (mínimo 6)</span><input class="entrada" name="senha" type="password" minlength="6" required></label>
       <button class="btn primario bloco" type="submit">Criar administrador</button>
       <div class="aviso erro hidden" id="erroPrimeiro"></div>
     </div>
-    <p class="rodape-marca">feito por <b>Rafinhadr</b></p>
+    <p class="assinatura"><img src="/assets/logo@2x.png" alt="Rafinhadr" class="logo-mini"><span>feito por <b>Rafinhadr</b></span></p>
   </form>
 </div>
 
 <!-- login -->
 <div id="telaLogin" class="login-tela hidden">
   <form class="login-caixa" id="formLogin">
-    <img src="/assets/logo@2x.png" alt="Rafinhadr" class="logo-grande">
     <h1>Administração</h1>
     <p class="sub">Entre com um usuário administrador.</p>
-    <div class="cartao pilha">
+    <div class="cartao pilha com-poleiro">
+      <div class="poleiro"><img class="mascote sentado" src="/assets/mascote/parado.gif" alt="" data-mascote-login><span class="balao-oi" data-saudacao></span></div>
       <label class="campo"><span>Usuário</span><input class="entrada" name="usuario" autocomplete="username" autocapitalize="none" spellcheck="false" required></label>
       <label class="campo"><span>Senha</span><input class="entrada" name="senha" type="password" autocomplete="current-password" required></label>
       <button class="btn primario bloco" type="submit">Entrar</button>
       <div class="aviso erro hidden" id="erroLogin"></div>
     </div>
     <p class="rodape-marca"><a href="/">Voltar ao app</a></p>
+    <p class="assinatura"><img src="/assets/logo@2x.png" alt="Rafinhadr" class="logo-mini"><span>feito por <b>Rafinhadr</b></span></p>
   </form>
 </div>
 
@@ -73,7 +73,7 @@
       <div class="segmentos" id="segmentos">
         <button class="ativa" data-sec="secEquipe">Equipe</button>
         <button data-sec="secNotas">Notas</button>
-        <button data-sec="secPrograma">Programa do PC</button>
+        <button data-sec="secPrograma">Downloads</button>
       </div>
       <span class="muted" id="infoTopo"></span>
     </div>
@@ -136,6 +136,22 @@
           <li>Entre com usuário e senha.</li>
           <li>Na aba <b>Calibragem</b>, com o formulário do sistema aberto, capture a posição de cada campo.</li>
           <li>Pronto: deixe o programa aberto. Ele lança sozinho o que chegar do celular.</li>
+          <li>Quando sair uma versão nova, ele mostra <b>“Atualizar”</b> no Início: é só clicar.</li>
+        </ol>
+      </div>
+
+      <div class="cartao pilha com-mascote-lado" style="margin-top:14px">
+        <div class="titulo-com-mascote">
+          <img class="mascote" src="/assets/mascote/digitando.gif" alt="" width="64" height="64">
+          <div><h2 style="margin:0">Extensão do Chrome · Lançador · Consultas</h2>
+            <p class="muted" style="margin:2px 0 0">Faz as consultas do <b>Detran</b> e do <b>IPVA</b> e envia os avisos de recibo pelo <b>WhatsApp Web</b>, no Chrome normal de cada pessoa.</p></div>
+        </div>
+        <div><a class="btn primario" href="https://github.com/Rafinhadrp/lancador-notas/releases/download/programa/LancadorConsultas.zip" rel="noopener"><span data-icone="download"></span>Baixar a extensão (.zip)</a></div>
+        <ol class="muted" style="margin:0;padding-left:20px;line-height:1.9">
+          <li>Baixe o zip, clique com o botão direito → <b>Extrair tudo</b> e guarde a pasta <b>LancadorConsultas</b> num lugar fixo (ex.: Documentos).</li>
+          <li>No Chrome, abra <b class="mono">chrome://extensions</b>, ligue <b>Modo do desenvolvedor</b> e clique em <b>Carregar sem compactação</b>. Escolha a pasta.</li>
+          <li>Fixe a extensão no alfinete (ícone de quebra-cabeça), clique no mascote → <b>Abrir o painel</b> e entre com o mesmo usuário do app.</li>
+          <li>Para atualizar: baixe de novo, extraia por cima da mesma pasta e clique em ↻ em <b class="mono">chrome://extensions</b>.</li>
         </ol>
       </div>
     </section>
@@ -190,11 +206,13 @@
     const f = ev.target;
     $('#erroLogin').classList.add('hidden');
     await ocupado(f.querySelector('button'), 'Entrando…', async () => {
+      App.humorLogin('digitando');
       try {
         const p = await App.entrar(f.usuario.value, f.senha.value);
-        if (!p.admin) return erro('#erroLogin', 'Seu usuário não é administrador.');
+        if (!p.admin) { App.humorLogin('erro', 2600); return erro('#erroLogin', 'Seu usuário não é administrador.'); }
+        App.humorLogin('feliz');
         abrirPainel();
-      } catch (e) { erro('#erroLogin', e.message); }
+      } catch (e) { App.humorLogin('erro', 2600); erro('#erroLogin', e.message); }
     });
   };
 

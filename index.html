@@ -20,21 +20,20 @@
 
 <!-- carregando -->
 <div id="telaCarregando" class="login-tela">
-  <div class="login-caixa" style="text-align:center">
-    <img src="/assets/logo@2x.png" alt="Rafinhadr" class="logo-grande">
-    <img class="mascote grande" src="/assets/mascote/pensando.gif" alt="">
+  <div class="login-caixa carregando">
+    <img class="mascote heroi" src="/assets/mascote/pensando.gif" alt="">
     <p class="muted" id="msgCarregando">Conectando…</p>
+    <p class="assinatura"><img src="/assets/logo@2x.png" alt="Rafinhadr" class="logo-mini"><span>feito por <b>Rafinhadr</b></span></p>
   </div>
 </div>
 
 <!-- login -->
 <div id="telaLogin" class="login-tela hidden">
   <form class="login-caixa" id="formLogin" autocomplete="on">
-    <img src="/assets/logo@2x.png" alt="Rafinhadr" class="logo-grande">
-    <img class="mascote grande" src="/assets/mascote/acenando.gif" alt="">
     <h1>Lançador de Notas</h1>
     <p class="sub">Entre com o seu usuário da equipe.</p>
-    <div class="cartao pilha">
+    <div class="cartao pilha com-poleiro">
+      <div class="poleiro"><img class="mascote sentado" src="/assets/mascote/acenando.gif" alt="" data-mascote-login><span class="balao-oi" data-saudacao></span></div>
       <label class="campo"><span>Usuário</span>
         <input class="entrada" name="usuario" autocomplete="username" autocapitalize="none" spellcheck="false" required></label>
       <label class="campo"><span>Senha</span>
@@ -43,7 +42,7 @@
       <div id="erroLogin" class="aviso erro hidden"></div>
     </div>
     <p class="rodape-marca" id="linkPrimeiro"></p>
-    <p class="rodape-marca">feito por <b>Rafinhadr</b></p>
+    <p class="assinatura"><img src="/assets/logo@2x.png" alt="Rafinhadr" class="logo-mini"><span>feito por <b>Rafinhadr</b></span></p>
   </form>
 </div>
 
@@ -90,6 +89,7 @@
         <label class="btn" for="inputGaleriaRecibo"><span data-icone="galeria"></span>Galeria</label>
         <button class="btn largo" id="btnColarLista" type="button"><span data-icone="colar"></span>Colar lista de placas</button>
       </div>
+<p class="dica-extensao">Roda na extensão do Chrome do seu PC. <a href="https://github.com/Rafinhadrp/lancador-notas/releases/download/programa/LancadorConsultas.zip" rel="noopener">Baixar a extensão</a></p>
       <input id="inputCameraRecibo" type="file" accept="image/*" capture="environment">
       <input id="inputGaleriaRecibo" type="file" accept="image/*" multiple>
     </section>
@@ -126,6 +126,7 @@
         <label class="btn primario" for="inputCameraContrato"><span data-icone="camera"></span>Tirar foto</label>
         <label class="btn" for="inputGaleriaContrato"><span data-icone="galeria"></span>Galeria</label>
       </div>
+<p class="dica-extensao">As mensagens saem pela extensão do Chrome, no WhatsApp Web do seu PC. <a href="https://github.com/Rafinhadrp/lancador-notas/releases/download/programa/LancadorConsultas.zip" rel="noopener">Baixar a extensão</a></p>
       <input id="inputCameraContrato" type="file" accept="image/*" capture="environment">
       <input id="inputGaleriaContrato" type="file" accept="image/*" multiple>
     </section>
@@ -219,10 +220,13 @@
     const f = ev.target, btn = f.querySelector('button');
     $('#erroLogin').classList.add('hidden');
     btn.disabled = true; btn.innerHTML = '<span class="gira"></span>Entrando…';
+    App.humorLogin('digitando');
     try {
       await App.entrar(f.usuario.value, f.senha.value);
+      App.humorLogin('feliz');
       abrirApp();
     } catch (e) {
+      App.humorLogin('erro', 2600);
       $('#erroLogin').textContent = e.message;
       $('#erroLogin').classList.remove('hidden');
     } finally {

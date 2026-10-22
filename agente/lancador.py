@@ -411,9 +411,10 @@ class Mascote:
 
     _cache = {}
 
-    def __init__(self, master, tamanho=64, estado="parado", fundo=SURFACE):
+    def __init__(self, master, tamanho=64, estado="parado", fundo=SURFACE, cortar_baixo=0):
         import tkinter as tk
         self.tamanho = tamanho
+        self.cortar = cortar_baixo  # linhas vazias (de 32) tiradas de baixo: os pés encostam onde ele "senta"
         self.label = tk.Label(master, bg=fundo, bd=0, highlightthickness=0)
         self.estado = ""
         self.quadros = []
@@ -428,14 +429,18 @@ class Mascote:
         return self
 
     def _carregar(self, estado):
-        chave = (estado, self.tamanho)
+        chave = (estado, self.tamanho, self.cortar)
         if chave not in Mascote._cache:
             from PIL import ImageSequence, ImageTk
             quadros = []
             try:
                 g = Image.open(recurso(os.path.join("mascote", f"{estado}.gif")))
                 for q in ImageSequence.Iterator(g):
-                    img = q.convert("RGBA").resize((self.tamanho, self.tamanho), Image.NEAREST)
+                    img = q.convert("RGBA")
+                    if self.cortar:
+                        img = img.crop((0, 0, img.width, img.height - img.height * self.cortar // 32))
+                    altura = self.tamanho * img.height // img.width
+                    img = img.resize((self.tamanho, altura), Image.NEAREST)
                     quadros.append((ImageTk.PhotoImage(img), int(q.info.get("duration", 120))))
             except Exception:
                 registrar(traceback.format_exc())
@@ -540,6 +545,9 @@ class App(ctk.CTk):
         self.ocupado = False
 
         logo = Image.open(recurso("logo.png"))
+        mini = logo.convert("RGBA")
+        mini.putalpha(mini.getchannel("A").point(lambda a: a * 55 // 100))  # logo bem discreta
+        self.logo_mini = ctk.CTkImage(dark_image=mini, light_image=mini, size=(int(15 * logo.width / logo.height), 15))
         self.logo_grande = ctk.CTkImage(dark_image=logo, light_image=logo, size=(150, int(150 * logo.height / logo.width)))
         self.logo_peq = ctk.CTkImage(dark_image=logo, light_image=logo, size=(96, int(96 * logo.height / logo.width)))
 
@@ -574,13 +582,20 @@ class App(ctk.CTk):
             w.destroy()
 
     # ------------------------------------------------------------ login
+    def _assinatura(self, master):
+        """Logo discreta junto do "feito por Rafinhadr"."""
+        f = ctk.CTkFrame(master, fg_color="transparent")
+        ctk.CTkLabel(f, text="", image=self.logo_mini).pack(side="left", padx=(0, 8))
+        rotulo(f, f"feito por Rafinhadr · v{VERSAO}", 11, cor=FAINT).pack(side="left")
+        return f
+
     def tela_conectando(self):
         self.limpar()
         f = ctk.CTkFrame(self, fg_color="transparent")
         f.place(relx=.5, rely=.5, anchor="center")
-        ctk.CTkLabel(f, text="", image=self.logo_grande).pack(pady=(0, 10))
-        Mascote(f, 96, "pensando", fundo=BG).pack(pady=(0, 8))
+        Mascote(f, 128, "pensando", fundo=BG).pack(pady=(0, 6))
         rotulo(f, "Conectando à central…", 14, cor=MUTED).pack()
+        self._assinatura(f).pack(pady=(28, 0))
 
     def _login_automatico(self):
         c = Central(self.config_.dados["central"])
@@ -594,13 +609,18 @@ class App(ctk.CTk):
         self.limpar()
         caixa = ctk.CTkFrame(self, fg_color="transparent")
         caixa.place(relx=.5, rely=.5, anchor="center")
-        ctk.CTkLabel(caixa, text="", image=self.logo_grande).pack(pady=(0, 8))
-        Mascote(caixa, 96, "acenando", fundo=BG).pack(pady=(0, 8))
         rotulo(caixa, "Lançador de Notas", 24, "bold").pack()
-        rotulo(caixa, "Entre com o mesmo usuário que você usa no celular.", 13, cor=MUTED).pack(pady=(2, 16))
+        rotulo(caixa, "Entre com o mesmo usuário que você usa no celular.", 13, cor=MUTED).pack(pady=(2, 0))
 
         c = cartao(caixa)
-        c.pack(fill="x")
+        c.pack(fill="x", pady=(92, 0))
+        # o mascote fica sentado na borda de cima do cartão, com um balão de "bom dia"
+        self.mascote_login = Mascote(caixa, 96, "acenando", fundo=BG, cortar_baixo=7)
+        self.mascote_login.label.place(in_=c, relx=.5, rely=0, anchor="s")
+        h = datetime.now().hour
+        ctk.CTkLabel(caixa, text="Bom dia!" if h < 12 else "Boa tarde!" if h < 18 else "Boa noite!",
+                     font=fonte(12, "bold"), text_color=TEXT, fg_color=SURFACE_2, corner_radius=10,
+                     height=26).place(in_=c, relx=.5, x=44, rely=0, y=-58, anchor="w")
         dentro = ctk.CTkFrame(c, fg_color="transparent")
         dentro.pack(padx=20, pady=20, fill="x")
 
@@ -628,6 +648,7 @@ class App(ctk.CTk):
                 return
             b.configure(state="disabled", text="Entrando…")
             msg.configure(text="")
+            self.mascote_login.definir("digitando")
 
             def tarefa():
                 cen = Central(end)
@@ -643,7 +664,7 @@ class App(ctk.CTk):
         for e in (e_central, e_usuario, e_senha):
             e.bind("<Return>", entrar)
         (e_senha if self.config_.dados.get("usuario") else e_central).focus_set()
-        rotulo(caixa, f"feito por Rafinhadr · v{VERSAO}", 11, cor=FAINT).pack(pady=(18, 0))
+        self._assinatura(caixa).pack(pady=(20, 0))
 
     def logado(self, central, usuario=None):
         self.central = central
@@ -1292,6 +1313,10 @@ class App(ctk.CTk):
         elif tipo == "login_falhou":
             self.tela_login(d["msg"])
         elif tipo == "login_erro":
+            m = getattr(self, "mascote_login", None)
+            if m and m.label.winfo_exists():
+                m.definir("erro")
+                self.after(2600, lambda: m.label.winfo_exists() and m.definir("acenando"))
             b, msg = d["widgets"]
             if b.winfo_exists():
                 b.configure(state="normal", text="Entrar")

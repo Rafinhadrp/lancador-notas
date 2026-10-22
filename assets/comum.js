@@ -95,6 +95,20 @@
       return `<img class="mascote ${classe}" src="/assets/mascote/${estado}.gif" alt="" aria-hidden="true">`;
     },
 
+    saudacao(d = new Date()) {
+      return d.getHours() < 12 ? 'Bom dia' : d.getHours() < 18 ? 'Boa tarde' : 'Boa noite';
+    },
+
+    // mascote do login reage: digitando ao entrar, erro se a senha falhar, feliz quando entra
+    humorLogin(estado, voltarEm = 0) {
+      document.querySelectorAll('[data-mascote-login]').forEach((img) => {
+        if (!img.dataset.inicial) img.dataset.inicial = img.getAttribute('src');
+        img.src = `/assets/mascote/${estado}.gif`;
+        clearTimeout(img._volta);
+        if (voltarEm) img._volta = setTimeout(() => { img.src = img.dataset.inicial; }, voltarEm);
+      });
+    },
+
     toast(msg, tipo) {
       let el = document.getElementById('toast');
       if (!el) { el = document.createElement('div'); el.id = 'toast'; el.className = 'toast'; document.body.appendChild(el); }
@@ -246,4 +260,5 @@
   };
 
   window.App = App;
+  document.querySelectorAll('[data-saudacao]').forEach((el) => { el.textContent = App.saudacao() + '!'; });
 })();
