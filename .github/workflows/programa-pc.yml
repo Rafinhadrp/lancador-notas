@@ -28,7 +28,7 @@ jobs:
       - name: Gerar LancadorNotas.exe
         working-directory: agente
         run: >
-          pyinstaller --noconfirm --onefile --windowed --clean
+          python gerar_exe.py --noconfirm --onefile --windowed --clean
           --name LancadorNotas
           --icon icone.ico
           --splash splash.png

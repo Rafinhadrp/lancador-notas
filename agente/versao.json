@@ -1,4 +1,4 @@
 {
   "obrigatoria": false,
-  "novidades": "Tela de abertura: enquanto o programa carrega, aparece o mascote <R/> com \"Da foto da nota ao Autos 360, sem digitar nada.\""
+  "novidades": "Tela de abertura animada: o mascote <R/> fica pensando enquanto a barra mostra o programa carregando, e a tela some sozinha quando o programa abre."
 }
