@@ -17,6 +17,7 @@
 
 <main id="telaLogin" class="pagina" hidden>
   <form id="formLogin" class="cartao pilha">
+    <img class="mascote acenando" src="mascote/acenando.gif" alt="">
     <h1>Entrar</h1>
     <p class="fraco">Use o mesmo usuário do app do celular.</p>
     <label>Endereço da central<input id="lgCentral" required spellcheck="false"></label>
@@ -30,7 +31,7 @@
 <main id="telaPrincipal" class="pagina" hidden>
   <div id="faixaVersao" class="aviso" hidden></div>
   <section class="cartao status">
-    <span id="stPonto" class="ponto ok"></span>
+    <img id="stMascote" class="mascote" src="mascote/parado.gif" alt="">
     <div class="textos"><b id="stTitulo">Pronto</b><span id="stSub">Esperando consultas do celular…</span></div>
     <button class="btn" id="btnPular" hidden>Pular esta consulta</button>
     <button class="btn" id="btnPausar">Pausar</button>
@@ -62,6 +63,7 @@
 </main>
 
 <script src="sites.js"></script>
+<script src="mascote.js"></script>
 <script src="whats.js"></script>
 <script src="central.js"></script>
 <script src="painel.js"></script>

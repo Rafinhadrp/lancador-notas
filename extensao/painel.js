@@ -45,7 +45,12 @@ function log(msg) {
 function status(titulo, sub, cor = 'ok') {
   $('#stTitulo').textContent = titulo;
   $('#stSub').textContent = sub || '';
-  $('#stPonto').className = 'ponto ' + cor;
+  // humor do mascote (no painel e no ícone do canto do Chrome)
+  const humor = /^Pausado/.test(titulo) ? 'dormindo' : cor === 'erro' || /login|Conecte/i.test(titulo) ? 'erro'
+    : cor === 'warn' ? 'digitando' : 'parado';
+  Mascote.definir(humor);
+  Mascote.selo({ alerta: humor === 'erro' });
+  chrome.storage.local.set({ painelEstado: { titulo, sub: sub || '', estado: humor } });
 }
 function mostrarStatusLivre() {
   if (estado.whatsLogin) return status('Conecte o WhatsApp Web', 'Na aba do WhatsApp, leia o QR code com o celular. Os avisos continuam sozinhos depois.', 'warn');
@@ -55,16 +60,20 @@ function mostrarStatusLivre() {
   status('Pronto', 'Esperando consultas e avisos do celular…', 'ok');
 }
 async function atualizarNumeros() {
+  let total = 0;
   try {
     const n = await Central.contar();
     $('#nFila').textContent = n.fila;
+    total += n.fila;
     $('#nProntas').textContent = n.prontas;
   } catch (_) { /* sem conexão: tenta depois */ }
   try {
     const a = await Central.contarAvisos();
     $('#nAvFila').textContent = a.fila;
+    total += a.fila;
     $('#nAvEnviados').textContent = a.enviados;
   } catch (_) { /* tabela de avisos ainda não criada */ }
+  Mascote.selo({ fila: total });
 }
 function bip() {
   try {
@@ -332,9 +341,11 @@ async function cicloUma() {
   } else {
     campos.status = 'pronta';
     log(`✔ ${c.placa}: consultas prontas.`);
+    Mascote.definir('feliz', { temporario: true });
   }
   await Central.atualizarConsulta(c.id, campos);
   atualizarNumeros();
+  mostrarStatusLivre();
   try { await dormir(estado.ajustes.intervalo * 1000); } catch (_) { /* pausado */ }
   return true;
 }
@@ -413,6 +424,7 @@ async function cicloAviso() {
     await enviarAviso(av);
     await Central.atualizarAviso(av.id, { status: 'enviado', mensagem: '' });
     log(`✔ Aviso enviado para ${av.nome}.`);
+    Mascote.definir('feliz', { temporario: true });
   } catch (e) {
     if (e instanceof Parado && estado.pular) {
       estado.pular = false;
@@ -441,6 +453,7 @@ async function cicloAviso() {
   estado.atual = null;
   $('#btnPular').hidden = true;
   atualizarNumeros();
+  mostrarStatusLivre();
   // intervalo entre um cliente e outro (variando um pouco, para não parecer robô)
   const base = Math.max(10, Number(estado.ajustes.intervaloWhats) || 20) * 1000;
   try { await dormir(sorteio(base * 0.8, base * 1.3)); } catch (_) { /* pausado */ }
@@ -485,6 +498,7 @@ async function verificarVersao() {
 
 // ------------------------------------------------------------------ início
 async function abrirPrincipal() {
+  await Mascote.iniciar().catch(() => {});
   $('#telaLogin').hidden = true;
   $('#telaPrincipal').hidden = false;
   $('#quem').textContent = `${Central.cfg.nome || ''} · ${Central.cfg.central.replace(/^https?:\/\//, '')}`;

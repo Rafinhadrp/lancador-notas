@@ -90,10 +90,16 @@
       return dados;
     },
 
+    // mascote <R/> (pixel art): parado, digitando, feliz, acenando, pensando, dormindo, erro
+    mascote(estado = 'parado', classe = '') {
+      return `<img class="mascote ${classe}" src="/assets/mascote/${estado}.gif" alt="" aria-hidden="true">`;
+    },
+
     toast(msg, tipo) {
       let el = document.getElementById('toast');
       if (!el) { el = document.createElement('div'); el.id = 'toast'; el.className = 'toast'; document.body.appendChild(el); }
-      el.textContent = msg;
+      el.innerHTML = (tipo === 'ok' ? App.mascote('feliz', 'mini') : tipo === 'erro' ? App.mascote('erro', 'mini') : '')
+        + `<span>${App.esc(msg)}</span>`;
       el.className = `toast mostrar ${tipo || ''}`;
       clearTimeout(App._t);
       App._t = setTimeout(() => { el.className = 'toast'; }, tipo === 'erro' ? 5000 : 2800);

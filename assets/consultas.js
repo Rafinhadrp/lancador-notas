@@ -138,12 +138,12 @@
     const remover = `<button class="icone-btn" data-remover="${it.id}" title="Remover">${ICONES.fechar}</button>`;
     if (it.estado === 'lendo') {
       return `<article class="cartao nota"><div class="nota-topo">${thumb}
-        <div class="info"><b>Lendo o recibo…</b><span>Procurando placa e Renavam</span></div></div>
+        <div class="info"><b>Lendo o recibo…</b><span>Procurando placa e Renavam</span></div>${App.mascote('digitando', 'mini')}</div>
         <div class="esqueleto"><div class="barra" style="width:40%"></div><div class="barra"></div></div></article>`;
     }
     if (it.estado === 'falhou') {
       return `<article class="cartao nota"><div class="nota-topo">${thumb}
-        <div class="info"><b>Não consegui ler</b><span>${esc(it.erro)}</span></div>${remover}</div>
+        <div class="info"><b>Não consegui ler</b><span>${esc(it.erro)}</span></div>${App.mascote('erro', 'mini')}${remover}</div>
         <div class="nota-corpo"><div class="aviso erro">${ICONES.alerta}<span>Tire a foto de novo mostrando a placa e o Renavam, ou use "Colar lista".</span></div></div></article>`;
     }
     const p = problemas(it);
@@ -209,7 +209,7 @@
     $('#cProntas').textContent = data.filter((c) => c.status === 'pronta' && new Date(c.concluido_em || c.criado_em).toDateString() === hoje).length;
     $('#cErros').textContent = data.filter((c) => c.status === 'erro').length;
     const el = $('#historicoConsultas');
-    if (!data.length) { el.innerHTML = `<div class="vazio">${ICONES.vazio}<div>Nenhuma consulta ainda.</div></div>`; return; }
+    if (!data.length) { el.innerHTML = `<div class="vazio">${App.mascote('dormindo', 'grande')}<div>Nenhuma consulta ainda.</div></div>`; return; }
     const tag = (nome, st) => `<span class="site-tag ${st}">${nome}${st === 'ok' ? ' ✓' : st === 'erro' ? ' ✕' : ''}</span>`;
     el.innerHTML = data.map((c) => {
       let acoes = '';

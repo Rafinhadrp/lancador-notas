@@ -154,12 +154,12 @@
     const remover = `<button class="icone-btn" data-remover="${it.id}" title="Remover">${ICONES.fechar}</button>`;
     if (it.estado === 'lendo') {
       return `<article class="cartao nota"><div class="nota-topo">${thumb}
-        <div class="info"><b>Lendo o contrato…</b><span>Procurando cliente, telefone e carro</span></div></div>
+        <div class="info"><b>Lendo o contrato…</b><span>Procurando cliente, telefone e carro</span></div>${App.mascote('digitando', 'mini')}</div>
         <div class="esqueleto"><div class="barra" style="width:40%"></div><div class="barra"></div></div></article>`;
     }
     if (it.estado === 'falhou') {
       return `<article class="cartao nota"><div class="nota-topo">${thumb}
-        <div class="info"><b>Não consegui ler</b><span>${esc(it.erro)}</span></div>${remover}</div>
+        <div class="info"><b>Não consegui ler</b><span>${esc(it.erro)}</span></div>${App.mascote('erro', 'mini')}${remover}</div>
         <div class="nota-corpo"><div class="aviso erro">${ICONES.alerta}<span>Tire a foto de novo com o contrato inteiro e bem iluminado.</span></div></div></article>`;
     }
     const p = problemas(it);
@@ -254,7 +254,7 @@
     $('#avFila').textContent = data.filter((a) => a.status === 'pendente' || a.status === 'enviando').length;
     $('#avEnviados').textContent = data.filter((a) => a.status === 'enviado' && new Date(a.enviado_em || a.criado_em).toDateString() === hoje).length;
     $('#avErros').textContent = data.filter((a) => a.status === 'erro').length;
-    if (!data.length) { el.innerHTML = `<div class="vazio">${ICONES.vazio}<div>Nenhum aviso ainda.</div></div>`; return; }
+    if (!data.length) { el.innerHTML = `<div class="vazio">${App.mascote('dormindo', 'grande')}<div>Nenhum aviso ainda.</div></div>`; return; }
     el.innerHTML = data.map((a) => {
       let acoes = '';
       if (a.status === 'pendente') acoes = `<button class="btn fantasma pequeno" data-cancelar-av="${a.id}">Cancelar</button>`;

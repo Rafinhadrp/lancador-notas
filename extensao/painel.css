@@ -37,3 +37,7 @@ input:focus { outline: none; border-color: var(--accent); }
 .rodape { text-align: center; color: var(--faint); font-size: 12px; margin-top: 28px; }
 
 @media (max-width: 720px) { .numeros { grid-template-columns: 1fr 1fr; } }
+
+.mascote { image-rendering: pixelated; flex: none; }
+.status .mascote { width: 64px; height: 64px; margin: -6px 0; }
+.mascote.acenando { width: 96px; height: 96px; align-self: center; }

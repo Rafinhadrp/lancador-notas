@@ -17,6 +17,7 @@
 <div id="telaCarregando" class="login-tela">
   <div class="login-caixa" style="text-align:center">
     <img src="/assets/logo@2x.png" alt="Rafinhadr" class="logo-grande">
+    <img class="mascote grande" src="/assets/mascote/pensando.gif" alt="">
     <p class="muted" id="msgCarregando">Conectando…</p>
   </div>
 </div>
@@ -25,6 +26,7 @@
 <div id="telaPrimeiro" class="login-tela hidden">
   <form class="login-caixa" id="formPrimeiro">
     <img src="/assets/logo@2x.png" alt="Rafinhadr" class="logo-grande">
+    <img class="mascote grande" src="/assets/mascote/acenando.gif" alt="">
     <h1>Bem-vindo</h1>
     <p class="sub">Crie o administrador. Ele cadastra o resto da equipe.</p>
     <div class="cartao pilha">
@@ -312,7 +314,7 @@
       <td style="max-width:420px">${esc(n.descricao)}${n.mensagem ? `<div class="faint" style="font-size:12px;margin-top:3px">${esc(n.mensagem)}</div>` : ''}</td>
       <td class="mono" style="text-align:right;white-space:nowrap">R$ ${esc(n.valor)}</td>
       <td><span class="status ${n.status}">${App.STATUS[n.status] || n.status}</span></td></tr>`).join('')
-      || `<tr><td colspan="6"><div class="vazio">${ICONES.vazio}<div>Nenhuma nota nesse filtro.</div></div></td></tr>`;
+      || `<tr><td colspan="6"><div class="vazio">${App.mascote('dormindo', 'grande')}<div>Nenhuma nota nesse filtro.</div></div></td></tr>`;
   }
 
   $('#btnCSV').onclick = () => {

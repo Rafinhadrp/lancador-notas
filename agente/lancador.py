@@ -406,6 +406,75 @@ class Trabalhador(threading.Thread):
         self.ev("pronto")
 
 
+class Mascote:
+    """Mascote <R/> animado (GIF em pixel art) num Label do tkinter, sem suavizar os pixels."""
+
+    _cache = {}
+
+    def __init__(self, master, tamanho=64, estado="parado", fundo=SURFACE):
+        import tkinter as tk
+        self.tamanho = tamanho
+        self.label = tk.Label(master, bg=fundo, bd=0, highlightthickness=0)
+        self.estado = ""
+        self.quadros = []
+        self.i = 0
+        self._apos = None
+        self.feliz_ate = 0
+        self.depois = None
+        self.definir(estado)
+
+    def pack(self, **kw):
+        self.label.pack(**kw)
+        return self
+
+    def _carregar(self, estado):
+        chave = (estado, self.tamanho)
+        if chave not in Mascote._cache:
+            from PIL import ImageSequence, ImageTk
+            quadros = []
+            try:
+                g = Image.open(recurso(os.path.join("mascote", f"{estado}.gif")))
+                for q in ImageSequence.Iterator(g):
+                    img = q.convert("RGBA").resize((self.tamanho, self.tamanho), Image.NEAREST)
+                    quadros.append((ImageTk.PhotoImage(img), int(q.info.get("duration", 120))))
+            except Exception:
+                registrar(traceback.format_exc())
+            Mascote._cache[chave] = quadros
+        return Mascote._cache[chave]
+
+    def definir(self, estado, temporario=False):
+        if temporario:
+            self.feliz_ate = time.time() + 3
+        elif time.time() < self.feliz_ate:
+            self.depois = estado
+            return
+        if estado == self.estado:
+            return
+        self.estado = estado
+        self.quadros = self._carregar(estado)
+        self.i = 0
+        if self._apos:
+            try:
+                self.label.after_cancel(self._apos)
+            except Exception:
+                pass
+        self._quadro()
+
+    def _quadro(self):
+        if not self.quadros or not self.label.winfo_exists():
+            return
+        img, dur = self.quadros[self.i % len(self.quadros)]
+        self.label.configure(image=img)
+        self.i += 1
+        if self.feliz_ate and time.time() > self.feliz_ate:
+            self.feliz_ate = 0
+            volta, self.depois = self.depois or "parado", None
+            self.estado = ""
+            self.definir(volta)
+            return
+        self._apos = self.label.after(max(80, dur), self._quadro)
+
+
 def registrar(texto):
     try:
         with open(ARQ_LOG, "a", encoding="utf-8") as f:
@@ -509,7 +578,8 @@ class App(ctk.CTk):
         self.limpar()
         f = ctk.CTkFrame(self, fg_color="transparent")
         f.place(relx=.5, rely=.5, anchor="center")
-        ctk.CTkLabel(f, text="", image=self.logo_grande).pack(pady=(0, 14))
+        ctk.CTkLabel(f, text="", image=self.logo_grande).pack(pady=(0, 10))
+        Mascote(f, 96, "pensando", fundo=BG).pack(pady=(0, 8))
         rotulo(f, "Conectando à central…", 14, cor=MUTED).pack()
 
     def _login_automatico(self):
@@ -524,7 +594,8 @@ class App(ctk.CTk):
         self.limpar()
         caixa = ctk.CTkFrame(self, fg_color="transparent")
         caixa.place(relx=.5, rely=.5, anchor="center")
-        ctk.CTkLabel(caixa, text="", image=self.logo_grande).pack(pady=(0, 12))
+        ctk.CTkLabel(caixa, text="", image=self.logo_grande).pack(pady=(0, 8))
+        Mascote(caixa, 96, "acenando", fundo=BG).pack(pady=(0, 8))
         rotulo(caixa, "Lançador de Notas", 24, "bold").pack()
         rotulo(caixa, "Entre com o mesmo usuário que você usa no celular.", 13, cor=MUTED).pack(pady=(2, 16))
 
@@ -689,8 +760,7 @@ class App(ctk.CTk):
         st.pack(fill="x", padx=32)
         linha = ctk.CTkFrame(st, fg_color="transparent")
         linha.pack(fill="x", padx=20, pady=18)
-        self.st_ponto = rotulo(linha, "●", 30, cor=OK)
-        self.st_ponto.pack(side="left", padx=(0, 14))
+        self.st_mascote = Mascote(linha, 64, "parado").pack(side="left", padx=(0, 14))
         textos = ctk.CTkFrame(linha, fg_color="transparent")
         textos.pack(side="left", fill="x", expand=True)
         self.st_titulo = rotulo(textos, "Pronto", 18, "bold", anchor="w")
@@ -764,7 +834,10 @@ class App(ctk.CTk):
         if hasattr(self, "st_titulo") and self.st_titulo.winfo_exists():
             self.st_titulo.configure(text=titulo)
             self.st_sub.configure(text=sub)
-            self.st_ponto.configure(text_color=cor)
+            humor = ("digitando" if titulo.startswith("Lançando") else "pensando" if titulo.startswith("Esperando")
+                     else "dormindo" if titulo.startswith("Pausado") else "erro" if cor == DANGER or "obrigatória" in titulo
+                     else "parado")
+            self.st_mascote.definir(humor)
 
     def alternar_pausa(self):
         if self.pausado.is_set():
@@ -1235,6 +1308,8 @@ class App(ctk.CTk):
             self.b_pular.pack(side="right", padx=(8, 0))
             self.deiconify()
         elif tipo == "lancada":
+            if getattr(self, "st_mascote", None):
+                self.st_mascote.definir("feliz", temporario=True)
             self.atualizar_numeros_rapido()
         elif tipo == "pronto":
             self.ocupado = False

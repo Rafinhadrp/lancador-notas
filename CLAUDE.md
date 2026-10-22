@@ -29,6 +29,12 @@ A equipe fotografa no celular notas de oficinas e autopeças. O Claude lê a not
 - `.github/workflows/programa-pc.yml`: gera o `LancadorNotas.exe` (PyInstaller) e publica na release `programa`.
 - Login: o usuário vira o e-mail interno `usuario@lancador.local`. Os usuários são criados só pelo admin, sem cadastro público.
 
+## Mascote <R/> (pixel art do Rafael)
+- Estados: `parado`, `digitando`, `feliz`, `acenando`, `pensando`, `dormindo`, `erro` (+ `programando`, não usado). Sempre sem suavizar (`image-rendering: pixelated` / `Image.NEAREST`).
+- App/site (`assets/mascote/*.gif`, 256px): `App.mascote(estado, 'mini'|'grande')`. Login = acenando, carregando = pensando, cartão lendo = digitando, falhou = erro, lista vazia = dormindo, avisos (toast) ok = feliz / erro = erro.
+- Programa do PC (`agente/mascote/*.gif`, empacotado com `--add-data "mascote;mascote"`): classe `Mascote` (Label do tkinter animado). Login = acenando, conectando = pensando, cartão do Início: Pronto = parado, Lançando = digitando, lançada = feliz por 3 s, Esperando você = pensando, Pausado = dormindo, Sem conexão = erro.
+- Extensão (`extensao/mascote.js`, `mascote/*.gif` 128px e `*-32.png` = folhas de quadros 32×32 + `tempos.json`): mascote no painel e **ícone animado no canto do Chrome** (`chrome.action.setIcon` quadro a quadro) com selo = tamanho da fila (consultas + avisos), "!" vermelho quando precisa de login/QR, "off" quando o painel fecha. O popup mostra o mascote e o estado do painel.
+
 ## XML da NF-e
 - No app há o botão **Arquivo XML da nota**: `App.lerNFe()` (em `assets/comum.js`) lê o XML no próprio navegador, sem IA.
 - data = `dhEmi` (DD/MM), itens = `det/prod/xProd`, valor = `ICMSTot/vNF`, fornecedor = `emit/xNome`.

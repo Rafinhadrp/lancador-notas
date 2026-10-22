@@ -22,6 +22,7 @@
 <div id="telaCarregando" class="login-tela">
   <div class="login-caixa" style="text-align:center">
     <img src="/assets/logo@2x.png" alt="Rafinhadr" class="logo-grande">
+    <img class="mascote grande" src="/assets/mascote/pensando.gif" alt="">
     <p class="muted" id="msgCarregando">Conectando…</p>
   </div>
 </div>
@@ -30,6 +31,7 @@
 <div id="telaLogin" class="login-tela hidden">
   <form class="login-caixa" id="formLogin" autocomplete="on">
     <img src="/assets/logo@2x.png" alt="Rafinhadr" class="logo-grande">
+    <img class="mascote grande" src="/assets/mascote/acenando.gif" alt="">
     <h1>Lançador de Notas</h1>
     <p class="sub">Entre com o seu usuário da equipe.</p>
     <div class="cartao pilha">
@@ -393,12 +395,12 @@
     const remover = `<button class="icone-btn" data-remover="${n.id}" title="Remover">${ICONES.fechar}</button>`;
     if (n.estado === 'lendo') {
       return `<article class="cartao nota" id="n${n.id}"><div class="nota-topo">${thumb}
-        <div class="info"><b>Lendo a nota…</b><span>Isso leva alguns segundos</span></div></div>
+        <div class="info"><b>Lendo a nota…</b><span>Isso leva alguns segundos</span></div>${App.mascote('digitando', 'mini')}</div>
         <div class="esqueleto"><div class="barra" style="width:40%"></div><div class="barra"></div><div class="barra" style="width:70%"></div></div></article>`;
     }
     if (n.estado === 'falhou') {
       return `<article class="cartao nota" id="n${n.id}"><div class="nota-topo">${thumb}
-        <div class="info"><b>Não consegui ler esta nota</b><span>${esc(n.erro)}</span></div>${remover}</div>
+        <div class="info"><b>Não consegui ler esta nota</b><span>${esc(n.erro)}</span></div>${App.mascote('erro', 'mini')}${remover}</div>
         <div class="nota-corpo"><div class="aviso erro">${ICONES.alerta}<span>${n.xml ? 'Confira se o arquivo é o XML da NF-e (não o PDF/DANFE).' : 'Tire a foto de novo, com a nota inteira e bem iluminada.'}</span></div></div></article>`;
     }
     const d = n.dados;
@@ -495,7 +497,7 @@
 
     const el = $('#listaHistorico');
     if (!data.length) {
-      el.innerHTML = `<div class="vazio">${ICONES.vazio}<div>Nenhuma nota ainda.</div></div>`;
+      el.innerHTML = `<div class="vazio">${App.mascote('dormindo', 'grande')}<div>Nenhuma nota ainda.</div></div>`;
       return;
     }
     el.innerHTML = data.map((n) => {
