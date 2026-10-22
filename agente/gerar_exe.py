@@ -117,7 +117,7 @@ def script_animado(total):
         "fx": FASE[0], "fy": FASE[1],
     }
     return "\n".join([t.ipc_script, t.image_script, t.splash_canvas_setup, anim, t.transparent_setup,
-                      t.pack_widgets, t.position_window_on_top, t.raise_window])
+                      t.pack_widgets, t.position_window_on_top, "catch {raise .}"])
 
 
 def trocar_script_do_splash():

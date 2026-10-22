@@ -1,5 +1,7 @@
 name: Teste da tela de abertura
 on: workflow_dispatch
+permissions:
+  contents: write
 jobs:
   windows:
     runs-on: windows-latest
@@ -18,7 +20,8 @@ jobs:
         run: |
           Add-Type -AssemblyName System.Windows.Forms,System.Drawing
           $p = Start-Process -FilePath dist\TesteSplash.exe -RedirectStandardError err.txt -RedirectStandardOutput out.txt -PassThru
-          foreach ($t in 1,3,5) {
+          foreach ($t in 1,2,3,4,5) {
+            Start-Sleep -Milliseconds 500
             Start-Sleep -Seconds 2
             $b = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
             $bmp = New-Object System.Drawing.Bitmap $b.Width, $b.Height
@@ -30,6 +33,14 @@ jobs:
           "---- stderr"; Get-Content err.txt | Select-String -Pattern "SPLASH|splash|Tcl|tcl|error|Error" | Select-Object -First 60
           "---- stdout"; Get-Content out.txt -Tail 20
           Get-ChildItem build\TesteSplash\*.tcl | ForEach-Object { "---- script $($_.Name) $($_.Length) bytes" }
+      - name: Publicar as fotos (release temporária)
+        if: always()
+        working-directory: agente
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete teste-splash -y --cleanup-tag 2>$null
+          gh release create teste-splash tela1.png tela2.png tela3.png tela4.png tela5.png build/TesteSplash/Splash-00_script.tcl --prerelease --title "teste (apagar)" --notes "temporario" --target ${{ github.sha }}
       - uses: actions/upload-artifact@v4
         if: always()
         with:
