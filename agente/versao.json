@@ -1,4 +1,4 @@
 {
   "obrigatoria": false,
-  "novidades": "Tela de abertura animada: o mascote <R/> fica pensando enquanto a barra mostra o programa carregando, e a tela some sozinha quando o programa abre."
+  "novidades": "Corrige a tela de abertura: agora aparece animada (mascote pensando e barra de carregando) e some sozinha quando o programa abre. Na 1.5.3 ficava uma janelinha \"tk\" vazia."
 }
