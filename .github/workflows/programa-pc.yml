@@ -31,6 +31,7 @@ jobs:
           pyinstaller --noconfirm --onefile --windowed --clean
           --name LancadorNotas
           --icon icone.ico
+          --splash splash.png
           --add-data "logo.png;."
           --add-data "icone.png;."
           --add-data "icone.ico;."

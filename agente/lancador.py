@@ -31,6 +31,17 @@ try:
 except Exception:  # pragma: no cover
     keyboard = None
 
+
+
+def fechar_splash():
+    global pyi_splash
+    if pyi_splash:
+        try:
+            pyi_splash.close()
+        except Exception:
+            pass
+        pyi_splash = None
+
 # ---------------------------------------------------------------- aparência
 BG = "#0b0f14"
 SURFACE = "#141b23"
@@ -553,6 +564,7 @@ class App(ctk.CTk):
 
         self.protocol("WM_DELETE_WINDOW", self.fechar)
         self.after(150, self._bombear_eventos)
+        self.after(300, fechar_splash)  # a janela já apareceu: some a tela de abertura
 
         if self.config_.dados.get("refresh_token") and self.config_.dados.get("central"):
             self.tela_conectando()
@@ -1562,6 +1574,7 @@ def instancia_unica():
 if __name__ == "__main__":
     trava = instancia_unica()
     if trava is None:
+        fechar_splash()
         import tkinter
         from tkinter import messagebox
         r = tkinter.Tk()
@@ -1571,5 +1584,6 @@ if __name__ == "__main__":
     try:
         App().mainloop()
     except Exception:
+        fechar_splash()
         registrar(traceback.format_exc())
         raise
