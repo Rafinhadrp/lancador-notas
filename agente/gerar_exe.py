@@ -43,7 +43,10 @@ def quadros_mascote(estado="pensando", escala=0.75):
     return quadros, tempos
 
 
+# O Tcl do splash não carrega o init.tcl: nada de min()/max() (são procs de lá); só comandos em C.
 ANIMACAO = r"""
+proc menor {a b} { if {$a < $b} { return $a } else { return $b } }
+proc maior {a b} { if {$a > $b} { return $a } else { return $b } }
 set ::n 0
 set ::fim 0
 set ::atual 0.0
@@ -82,9 +85,9 @@ proc marcar {args} {
 
 proc passo {} {
     set seg [expr {([clock milliseconds] - $::t0) / 1000.0}]
-    set por_arquivo [expr {0.75 * min(1.0, double($::n) / $::total)}]
+    set por_arquivo [expr {0.75 * [menor 1.0 [expr {double($::n) / $::total}]]}]
     set por_tempo [expr {0.9 * (1.0 - exp(-$seg / 6.0))}]
-    set alvo [expr {$::fim ? 1.0 : max($por_arquivo, $por_tempo)}]
+    set alvo [expr {$::fim ? 1.0 : [maior $por_arquivo $por_tempo]}]
     set ::atual [expr {$::atual + ($alvo - $::atual) * ($::fim ? 0.35 : 0.08)}]
     set x [expr {$::bx + $::bl * $::atual}]
     set y1 [expr {$::by + $::ba}]
@@ -92,8 +95,8 @@ proc passo {} {
     set cheio [expr {$x - $::bx}]
     if {$cheio > 30} {
         set p [expr {fmod($seg * 0.8, 1.5) - 0.25}]
-        set b0 [expr {max($::bx, min($x, $::bx + $cheio * $p))}]
-        set b1 [expr {max($::bx, min($x, $b0 + 28))}]
+        set b0 [maior $::bx [menor $x [expr {$::bx + $cheio * $p}]]]
+        set b1 [maior $::bx [menor $x [expr {$b0 + 28}]]]
         .root.canvas coords brilho $b0 $::by $b1 $y1
     } else {
         .root.canvas coords brilho $::bx $::by $::bx $y1
