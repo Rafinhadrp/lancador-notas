@@ -38,6 +38,13 @@ async function criarUsuario({ usuario, nome, senha, admin }) {
   return id;
 }
 
+// Conta principal (dono): o primeiro usuário criado (o do "primeiro_admin"). Ninguém além dele mesmo
+// pode excluir, desativar, tirar o admin, trocar a senha ou renomear essa conta.
+async function idDono() {
+  const r = await sbAdmin('/rest/v1/perfis?select=id&order=criado_em.asc,id.asc&limit=1');
+  return r && r[0] ? r[0].id : null;
+}
+
 module.exports = async (req, res) => {
   if (req.method !== 'POST') return responder(res, 405, { erro: 'Use POST' });
   const falta = faltaConfig();
@@ -59,12 +66,13 @@ module.exports = async (req, res) => {
     const { user } = await autenticar(req, { exigirAdmin: true });
 
     if (acao === 'listar') {
-      const [perfis, agentes] = await Promise.all([
+      const [perfis, agentes, dono] = await Promise.all([
         sbAdmin('/rest/v1/perfis?select=*&order=nome.asc'),
         sbAdmin('/rest/v1/agentes?select=*'),
+        idDono(),
       ]);
       const porId = Object.fromEntries((agentes || []).map((a) => [a.user_id, a]));
-      return responder(res, 200, { usuarios: perfis.map((p) => ({ ...p, agente: porId[p.id] || null })) });
+      return responder(res, 200, { usuarios: perfis.map((p) => ({ ...p, dono: p.id === dono, agente: porId[p.id] || null })) });
     }
 
     if (acao === 'criar') {
@@ -77,6 +85,9 @@ module.exports = async (req, res) => {
     const id = String(corpo.id || '');
     if (!/^[0-9a-f-]{36}$/i.test(id)) return responder(res, 400, { erro: 'Usuário inválido.' });
     const proprio = id === user.id;
+    if (!proprio && id === await idDono()) {
+      return responder(res, 403, { erro: 'Essa é a conta principal do sistema. Só o próprio dono pode alterá-la.' });
+    }
 
     if (acao === 'atualizar') {
       const mudar = {};

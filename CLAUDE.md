@@ -27,6 +27,7 @@ A equipe fotografa no celular notas de oficinas e autopeças. O Claude lê a not
 - `agente/atualizador.py`: atualização automática pela release do GitHub, ver abaixo.
 - `extensao/`: extensão do Chrome **"Lançador · Consultas"** (Manifest V3), que faz as consultas no Chrome normal da pessoa. Ver abaixo.
 - `.github/workflows/programa-pc.yml`: gera o `LancadorNotas.exe` (PyInstaller) e publica na release `programa`.
+- **Conta principal (dono)**: o primeiro usuário criado (`criado_em` mais antigo, o do `primeiro_admin`) é o do Rafael. Pedido dele em 26/10/2026: outro admin **não** pode excluir, desativar, tirar o admin, trocar a senha nem renomear essa conta. O `api/admin.js` bloqueia (403) e o admin mostra o selo "principal" sem os botões. Só o próprio dono mexe nela.
 - Login: o usuário vira o e-mail interno `usuario@lancador.local`. Os usuários são criados só pelo admin, sem cadastro público.
 
 ## Mascote <R/> (pixel art do Rafael)

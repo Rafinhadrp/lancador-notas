@@ -252,15 +252,16 @@
     $('#tabelaEquipe').innerHTML = usuarios.map((u) => {
       const est = App.estadoPC(u.agente);
       const eu = u.id === App.perfil.id;
+      const protegido = u.dono && !eu;  // conta principal: os outros admins não mexem (o servidor também bloqueia)
       const visto = u.agente ? `<div class="faint" style="font-size:12px;margin-top:3px">${esc(u.agente.maquina || '')} · visto ${esc(App.quando(u.agente.visto_em))}</div>` : '';
       return `<tr>
-        <td><b>${esc(u.nome)}</b>${u.admin ? '<span class="selo">admin</span>' : ''}${eu ? '<span class="selo cinza">você</span>' : ''}</td>
+        <td><b>${esc(u.nome)}</b>${u.dono ? '<span class="selo">principal</span>' : u.admin ? '<span class="selo">admin</span>' : ''}${eu ? '<span class="selo cinza">você</span>' : ''}</td>
         <td class="mono">${esc(u.usuario)}</td>
         <td><span class="pilula ${est.classe}"><span class="ponto"></span><span>${est.texto}</span></span>${visto}</td>
         <td>${u.ativo ? '<span class="status lancada">Ativo</span>' : '<span class="status cancelada">Desativado</span>'}</td>
         <td class="acoes">
-          <button class="btn pequeno" data-a="senha" data-id="${u.id}">Nova senha</button>
-          ${eu ? '' : `<button class="btn pequeno" data-a="admin" data-id="${u.id}">${u.admin ? 'Tirar admin' : 'Tornar admin'}</button>
+          ${protegido ? '<span class="faint" style="font-size:12px">Conta principal · só o dono altera</span>' : `<button class="btn pequeno" data-a="senha" data-id="${u.id}">Nova senha</button>`}
+          ${eu || protegido ? '' : `<button class="btn pequeno" data-a="admin" data-id="${u.id}">${u.admin ? 'Tirar admin' : 'Tornar admin'}</button>
           <button class="btn pequeno" data-a="ativo" data-id="${u.id}">${u.ativo ? 'Desativar' : 'Reativar'}</button>
           <button class="btn pequeno perigo" data-a="excluir" data-id="${u.id}">Excluir</button>`}
         </td></tr>`;
