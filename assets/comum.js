@@ -179,7 +179,14 @@
       const dhEmi = txt('dhEmi', ide) || txt('dEmi', ide);
       const m = dhEmi.match(/^\d{4}-(\d{2})-(\d{2})/);
       const data = m ? `${m[2]}/${m[1]}` : '';
-      const itens = [...inf.getElementsByTagName('det')].map((d) => limpar(txt('xProd', d))).filter(Boolean);
+      // só o nome do produto: tira códigos do começo e corta no primeiro pedaço com número (igual ao /api/ler)
+      const soProduto = (s) => {
+        const partes = s.split(' ');
+        while (partes.length && /\d/.test(partes[0])) partes.shift();
+        const corte = partes.findIndex((p) => /\d/.test(p));
+        return (corte >= 0 ? partes.slice(0, corte) : partes).join(' ').replace(/[-\s.,:/]+$/, '') || s;
+      };
+      const itens = [...inf.getElementsByTagName('det')].map((d) => soProduto(limpar(txt('xProd', d)))).filter(Boolean);
       const vNF = txt('vNF', tag('ICMSTot', inf)) || txt('vNF', inf);
       const valor = vNF ? App.moeda(parseFloat(vNF)) : '';
 

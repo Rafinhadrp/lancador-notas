@@ -94,7 +94,7 @@ A equipe fotografa no celular notas de oficinas e autopeças. O Claude lê a not
 - Testado contra sites falsos locais (login com captcha, botão "outras pessoas", erro de Renavam, resultado na mesma página, sessão que expira depois de N consultas, Pular, F10, PDF por foto). **Não testado nos sites de verdade.**
 
 ## Regras de negócio (decididas com o usuário)
-- **Descrição**: `DD/MM ITEM 1 + ITEM 2 + ...` (data em DD/MM, sem ano), em maiúsculas e sem acento. Ex.: `10/09 ELRING COLA SILICONE ELRING PRETO 70GR + SINTECH BRONZINA BIELA FT 025 + VOX FILTRO OLEO FT`.
+- **Descrição**: `DD/MM ITEM 1 + ITEM 2 + ...` (data em DD/MM, sem ano), em maiúsculas e sem acento. Cada item é **só o nome do produto** (pedido do Rafael em 26/10/2026): sem códigos, referências, medidas nem marcas. Ex.: `PASTILHA FREIO DIANTEIRO 1423C` → `PASTILHA FREIO DIANTEIRO`, `BRONZINA MANCAL 77781610 030` → `BRONZINA MANCAL`, `CORREIA DENTADA CT1065` → `CORREIA DENTADA`, `FILTRO OLEO HU711/51X` → `FILTRO OLEO`. Linhas "RESOLUCAO DO SENADO.../FCI" não são itens. Além do prompt do `api/ler.js`, `soProduto()` (no `ler.js` e no `App.lerNFe`) corta no primeiro pedaço com número.
 - **Data da descrição**:
   - cupom de autopeças → data do campo **Sit.** (não a do ORÇAMENTO);
   - OS / documento auxiliar → data da OS (não a data de impressão);

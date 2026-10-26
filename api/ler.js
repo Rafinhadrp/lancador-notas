@@ -12,8 +12,15 @@ Regras:
   * Nota escrita à mão -> use "Data Entrada" (ou "Data Saída" se só ela existir).
 - placa: só letras e números, maiúsculas, sem espaço nem traço (ex.: QNE1G48). Costuma estar em Obs,
   no campo Placa ou junto do veículo. Se não houver placa, use "".
-- itens: descrição de cada peça/serviço em MAIÚSCULAS e sem acento, como aparece na nota, sem os códigos
-  numéricos do início da linha (ex.: "756333 SINTECH BRONZINA MANCAL FT 025" -> "SINTECH BRONZINA MANCAL FT 025").
+- itens: SÓ o nome do produto/serviço, em MAIÚSCULAS e sem acento, com as palavras como estão na nota.
+  Tire códigos, referências, números de peça, medidas e marcas (antes ou depois do nome). Mantenha só o que diz
+  o que é a peça e onde vai (ex.: DIANTEIRO, TRASEIRO, ESQUERDO, DIREITO, SUPERIOR, INFERIOR). Exemplos:
+  "49472 PASTILHA FREIO DIANTEIRO 1423C" -> "PASTILHA FREIO DIANTEIRO";
+  "BRONZINA MANCAL 77781610 030" -> "BRONZINA MANCAL"; "BRONZINA BIELA 77736610 030" -> "BRONZINA BIELA";
+  "CORREIA DENTADA CT1065" -> "CORREIA DENTADA"; "FILTRO OLEO HU711/51X" -> "FILTRO OLEO";
+  "756333 SINTECH BRONZINA MANCAL FT 025" -> "BRONZINA MANCAL".
+  Linhas de observação fiscal dentro da descrição (ex.: "RESOLUCAO DO SENADO FEDERAL N. 13/12",
+  "NRO.CONTROLE FCI: ...") NÃO são itens: ignore.
   Remova hífens soltos no final. Se a linha de serviço for um código genérico
   (ex.: "Serv.Inst.Mant.Acess.P/Veiculos") e a observação detalhar os serviços, use os serviços da observação
   (ex.: "LIMPEZA NO CONDENSADOR", "MAO DE OBRA"). Corrija erros óbvios de letra de mão (ex.: "supuior" -> "SUPERIOR").
@@ -23,6 +30,17 @@ Regras:
 - cnpj_fornecedor: CNPJ do emitente (NUNCA o da Autoforte, 10.696.802/0001-31). Senão "".
 - alerta: texto curto se algo estiver ilegível ou incerto, se não houver placa, ou se a soma dos itens não
   bater com o total. Senão "".`;
+
+// Rede de segurança: tira códigos do começo e corta no primeiro "pedaço" com número
+// ("PASTILHA FREIO DIANTEIRO 1423C" -> "PASTILHA FREIO DIANTEIRO", "FILTRO OLEO HU711/51X" -> "FILTRO OLEO").
+function soProduto(item) {
+  const original = String(item).trim().replace(/[-\s]+$/, '');
+  const partes = original.split(/\s+/);
+  while (partes.length && /\d/.test(partes[0])) partes.shift();
+  const corte = partes.findIndex((p) => /\d/.test(p));
+  const nome = (corte >= 0 ? partes.slice(0, corte) : partes).join(' ').replace(/[-\s.,:/]+$/, '');
+  return nome || original;
+}
 
 const FERRAMENTA = {
   name: 'registrar_nota',
@@ -66,7 +84,7 @@ module.exports = async (req, res) => {
     });
 
     const d = extrairJSON(resposta, 'registrar_nota');
-    const itens = (d.itens || []).map((i) => String(i).trim().replace(/[-\s]+$/, '')).filter(Boolean);
+    const itens = (d.itens || []).map(soProduto).filter(Boolean);
     const data = String(d.data || '').trim();
     responder(res, 200, {
       data,
