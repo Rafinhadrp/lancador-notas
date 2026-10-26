@@ -7,6 +7,7 @@
     lista: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M9 6.5h11M9 12h11M9 17.5h11"/><circle cx="4.8" cy="6.5" r="1.1" fill="currentColor"/><circle cx="4.8" cy="12" r="1.1" fill="currentColor"/><circle cx="4.8" cy="17.5" r="1.1" fill="currentColor"/></svg>',
     mais: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
     fechar: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>',
+    celular: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="6.5" y="2.5" width="11" height="19" rx="2.5"/><path d="M10.5 18.5h3"/></svg>',
     sair: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h3.5A2.5 2.5 0 0 1 20 6.5v11a2.5 2.5 0 0 1-2.5 2.5H14"/><path d="M10 16.5 5.5 12 10 7.5M5.5 12H15"/></svg>',
     escudo: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 3.5 5 6v5.5c0 4.2 3 7.6 7 9 4-1.4 7-4.8 7-9V6z"/><path d="m9 12 2 2 4-4" stroke-linecap="round"/></svg>',
     alerta: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4 2.8 19.5h18.4z"/><path d="M12 10v4M12 17v.01"/></svg>',
@@ -107,6 +108,41 @@
         clearTimeout(img._volta);
         if (voltarEm) img._volta = setTimeout(() => { img.src = img.dataset.inicial; }, voltarEm);
       });
+    },
+
+    // janela "Abrir no celular": QR code do endereço do app + como instalar (assets/qrcode.js, carregado só aqui)
+    async abrirCelular() {
+      const url = location.origin + '/';
+      if (!window.qrcode) {
+        await new Promise((ok, falha) => {
+          const s = document.createElement('script');
+          s.src = '/assets/qrcode.js'; s.onload = ok; s.onerror = () => falha(new Error('Não deu para gerar o QR code.'));
+          document.head.appendChild(s);
+        });
+      }
+      const qr = window.qrcode(0, 'M');
+      qr.addData(url);
+      qr.make();
+      const f = document.createElement('div');
+      f.className = 'fundo-modal';
+      f.innerHTML = `<div class="modal celular">
+        <h2>Abrir no celular</h2>
+        <div class="celular-corpo">
+          <img class="celular-qr" src="${qr.createDataURL(6, 2)}" alt="QR code do app">
+          <div>
+            <p class="muted">Aponte a câmera do celular para o código e entre com o seu usuário.</p>
+            <p class="faint celular-dica"><b>Virar app:</b> no iPhone, Safari → Compartilhar → <i>Adicionar à Tela de Início</i>.
+              No Android, Chrome → menu ⋮ → <i>Adicionar à tela inicial</i>.</p>
+          </div>
+        </div>
+        <div class="celular-link"><span class="mono">${App.esc(url)}</span><button type="button" class="btn pequeno" data-copiar>Copiar</button></div>
+        <div class="botoes"><button type="button" class="btn primario" data-fechar>Fechar</button></div>
+      </div>`;
+      f.onclick = (e) => { if (e.target === f || e.target.closest('[data-fechar]')) f.remove(); };
+      f.querySelector('[data-copiar]').onclick = async (e) => {
+        try { await navigator.clipboard.writeText(url); e.target.textContent = 'Copiado'; } catch { e.target.textContent = 'Copie acima'; }
+      };
+      document.body.appendChild(f);
     },
 
     toast(msg, tipo) {

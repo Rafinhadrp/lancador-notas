@@ -7,6 +7,7 @@ A equipe fotografa no celular notas de oficinas e autopeças. O Claude lê a not
 
 ## Arquitetura
 - `index.html` + `assets/`: app do celular (PWA). Usa supabase-js pelo CDN, `assets/comum.js` (funções compartilhadas) e `assets/estilo.css` (tema escuro, azul da logo `#7db4f8`, fonte IBM Plex). Abas: **Notas**, **Consultas** (`assets/consultas.js`), **Recibos** (`assets/recibos.js`) e **Histórico**.
+- **Abrir no celular**: botão de celular no topo do app e do admin (e link "Abrir no celular (QR code)" na tela de login) abre `App.abrirCelular()`: QR code do endereço do site (`location.origin`, `assets/qrcode.js` = qrcode-generator 1.4.4, MIT, carregado só nessa hora), como virar app no iPhone/Android e botão Copiar.
 - `admin.html`: painel do administrador (equipe, histórico geral, exportar CSV, download do .exe).
 - `api/` (funções do Vercel, Node, sem dependências):
   - `ler.js`: lê a foto com o Claude (tool use `registrar_nota`) e monta a descrição.

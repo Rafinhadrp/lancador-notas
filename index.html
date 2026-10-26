@@ -42,6 +42,7 @@
       <div id="erroLogin" class="aviso erro hidden"></div>
     </div>
     <p class="rodape-marca" id="linkPrimeiro"></p>
+    <p class="rodape-marca"><a href="#" id="linkCelular">Abrir no celular (QR code)</a></p>
     <p class="assinatura"><img src="/assets/logo@2x.png" alt="Rafinhadr" class="logo-mini"><span>feito por <b>Rafinhadr</b></span></p>
   </form>
 </div>
@@ -55,6 +56,7 @@
     </a>
     <span class="espaco"></span>
     <span class="pilula off" id="pilulaPC" title="Programa do seu computador"><span class="ponto"></span><span>…</span></span>
+    <button class="icone-btn" id="btnCelular" title="Abrir no celular"></button>
     <a class="icone-btn hidden" id="btnAdmin" href="/admin.html" title="Administração"></a>
     <button class="icone-btn" id="btnSair" title="Sair"></button>
   </header>
@@ -193,6 +195,9 @@
   const { ICONES, esc } = App;
   document.querySelectorAll('[data-icone]').forEach((el) => { el.innerHTML = ICONES[el.dataset.icone]; });
   $('#btnSair').innerHTML = ICONES.sair;
+  $('#btnCelular').innerHTML = ICONES.celular;
+  $('#btnCelular').onclick = () => App.abrirCelular().catch((e) => App.toast(e.message, 'erro'));
+  $('#linkCelular').onclick = (e) => { e.preventDefault(); App.abrirCelular().catch((er) => App.toast(er.message, 'erro')); };
   $('#btnAdmin').innerHTML = ICONES.escudo;
 
   let notas = [];          // notas em conferência: {id, thumb, estado:'lendo'|'pronta'|'falhou', dados, erro, duplicada}

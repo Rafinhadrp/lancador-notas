@@ -331,3 +331,14 @@ td.acoes { white-space: nowrap; text-align: right; }
 .dica-extensao { margin: 12px 0 0 !important; font-size: 12.5px !important; color: var(--faint) !important; }
 .dica-extensao a { font-weight: 600; }
 .titulo-com-mascote { display: flex; gap: 14px; align-items: center; }
+
+/* ---------- janela "Abrir no celular" */
+.modal.celular { max-width: 460px; }
+.celular-corpo { display: flex; gap: 16px; align-items: center; }
+.celular-qr { width: 156px; height: 156px; flex: none; background: #fff; border-radius: 12px; padding: 6px; image-rendering: pixelated; }
+.celular-corpo p { margin: 0; }
+.celular-dica { font-size: 13px; margin-top: 10px !important; line-height: 1.5; }
+.celular-link { display: flex; align-items: center; gap: 10px; justify-content: space-between; margin-top: 14px;
+  background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 8px 8px 8px 12px; }
+.celular-link .mono { font-size: 13px; overflow-wrap: anywhere; }
+@media (max-width: 480px) { .celular-corpo { flex-direction: column; text-align: center; } }

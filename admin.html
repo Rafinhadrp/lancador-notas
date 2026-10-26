@@ -64,6 +64,7 @@
       <span class="titulo">Administração<small id="nomeUsuario"></small></span>
     </a>
     <span class="espaco"></span>
+    <button class="icone-btn" id="btnCelular" title="Abrir no celular"></button>
     <a class="btn pequeno" href="/">Abrir o app</a>
     <button class="icone-btn" id="btnSair" title="Sair"></button>
   </header>
@@ -166,6 +167,8 @@
   const { ICONES, esc } = App;
   document.querySelectorAll('[data-icone]').forEach((el) => { el.innerHTML = ICONES[el.dataset.icone]; });
   $('#btnSair').innerHTML = ICONES.sair;
+  $('#btnCelular').innerHTML = ICONES.celular;
+  $('#btnCelular').onclick = () => App.abrirCelular().catch((e) => App.toast(e.message, 'erro'));
 
   let usuarios = [];
   let notasAtuais = [];
