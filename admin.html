@@ -2,6 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
+<script>try { if (localStorage.getItem('tema') === 'claro') document.documentElement.dataset.tema = 'claro'; } catch (_) {}</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0b0f14">
 <title>Administração · Lançador de Notas</title>
@@ -64,6 +65,7 @@
       <span class="titulo">Administração<small id="nomeUsuario"></small></span>
     </a>
     <span class="espaco"></span>
+    <button class="icone-btn" id="btnTema" title="Tema claro"></button>
     <button class="icone-btn" id="btnCelular" title="Abrir no celular"></button>
     <a class="btn pequeno" href="/">Abrir o app</a>
     <button class="icone-btn" id="btnSair" title="Sair"></button>
@@ -168,6 +170,7 @@
   document.querySelectorAll('[data-icone]').forEach((el) => { el.innerHTML = ICONES[el.dataset.icone]; });
   $('#btnSair').innerHTML = ICONES.sair;
   $('#btnCelular').innerHTML = ICONES.celular;
+  App.ligarBotaoTema($('#btnTema'));
   $('#btnCelular').onclick = () => App.abrirCelular().catch((e) => App.toast(e.message, 'erro'));
 
   let usuarios = [];

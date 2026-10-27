@@ -2,6 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
+<script>try { if (localStorage.getItem('tema') === 'claro') document.documentElement.dataset.tema = 'claro'; } catch (_) {}</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0b0f14">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -56,6 +57,7 @@
     </a>
     <span class="espaco"></span>
     <span class="pilula off" id="pilulaPC" title="Programa do seu computador"><span class="ponto"></span><span>…</span></span>
+    <button class="icone-btn" id="btnTema" title="Tema claro"></button>
     <button class="icone-btn" id="btnCelular" title="Abrir no celular"></button>
     <a class="icone-btn hidden" id="btnAdmin" href="/admin.html" title="Administração"></a>
     <button class="icone-btn" id="btnSair" title="Sair"></button>
@@ -89,11 +91,13 @@
       <div class="acoes">
         <label class="btn primario" for="inputCameraRecibo"><span data-icone="camera"></span>Tirar foto</label>
         <label class="btn" for="inputGaleriaRecibo"><span data-icone="galeria"></span>Galeria</label>
-        <button class="btn largo" id="btnColarLista" type="button"><span data-icone="colar"></span>Colar lista de placas</button>
+        <button class="btn" id="btnColarLista" type="button"><span data-icone="colar"></span>Colar lista</button>
+        <label class="btn" for="inputPlanilha"><span data-icone="lista"></span>Planilha do Autos 360</label>
       </div>
 <p class="dica-extensao">Roda na extensão do Chrome do seu PC. <a href="https://github.com/Rafinhadrp/lancador-notas/releases/download/programa/LancadorConsultas.zip" rel="noopener">Baixar a extensão</a></p>
       <input id="inputCameraRecibo" type="file" accept="image/*" capture="environment">
       <input id="inputGaleriaRecibo" type="file" accept="image/*" multiple>
+      <input id="inputPlanilha" type="file" accept=".xls,.xlsx,.csv,.txt,.htm,.html">
     </section>
     <div class="cartao pilha hidden" id="caixaLista" style="margin-top:14px">
       <label class="campo"><span>Uma linha por veículo: placa e Renavam (em qualquer ordem)</span>
@@ -103,6 +107,7 @@
         <button class="btn primario" id="btnAdicionarLista" type="button">Adicionar</button>
       </div>
     </div>
+    <div id="filaIpva"></div>
     <div id="listaConsultas"></div>
     <h2 class="secao">Consultas recentes</h2>
     <div class="resumo">
@@ -187,6 +192,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="/assets/comum.js"></script>
+<script src="/assets/planilha.js" defer></script>
 <script src="/assets/consultas.js" defer></script>
 <script src="/assets/recibos.js" defer></script>
 <script>
@@ -196,6 +202,7 @@
   document.querySelectorAll('[data-icone]').forEach((el) => { el.innerHTML = ICONES[el.dataset.icone]; });
   $('#btnSair').innerHTML = ICONES.sair;
   $('#btnCelular').innerHTML = ICONES.celular;
+  App.ligarBotaoTema($('#btnTema'));
   $('#btnCelular').onclick = () => App.abrirCelular().catch((e) => App.toast(e.message, 'erro'));
   $('#linkCelular').onclick = (e) => { e.preventDefault(); App.abrirCelular().catch((er) => App.toast(er.message, 'erro')); };
   $('#btnAdmin').innerHTML = ICONES.escudo;

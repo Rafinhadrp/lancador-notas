@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Lançador · Consultas",
   "short_name": "Lançador",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "Consulta no Detran e no IPVA as placas da aba Consultas e envia pelo WhatsApp Web os avisos de recibo da aba Recibos do Lançador de Notas. Feito por Rafinhadr.",
   "icons": {
     "16": "icones/16.png",

@@ -43,14 +43,20 @@ create table if not exists public.consultas (
   renavam        text not null,
   status         text not null default 'pendente'
                  check (status in ('pendente','consultando','pronta','erro','cancelada')),
-  detran_status  text not null default '' check (detran_status in ('','ok','erro')),
-  ipva_status    text not null default '' check (ipva_status in ('','ok','erro')),
+  detran_status  text not null default '' check (detran_status in ('','ok','erro','pulado')),
+  ipva_status    text not null default '' check (ipva_status in ('','ok','erro','pulado')),
   mensagem       text not null default '',
   arquivos       text not null default '',
   maquina        text not null default '',
   criado_em      timestamptz not null default now(),
   concluido_em   timestamptz
 );
+
+-- 'pulado' = esse site não precisa ser consultado (ex.: consulta "só IPVA"); atualiza bancos antigos
+alter table public.consultas drop constraint if exists consultas_detran_status_check;
+alter table public.consultas add constraint consultas_detran_status_check check (detran_status in ('','ok','erro','pulado'));
+alter table public.consultas drop constraint if exists consultas_ipva_status_check;
+alter table public.consultas add constraint consultas_ipva_status_check check (ipva_status in ('','ok','erro','pulado'));
 
 create index if not exists consultas_fila_idx on public.consultas (user_id, status, id);
 create index if not exists consultas_placa_idx on public.consultas (placa, criado_em desc);

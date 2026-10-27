@@ -8,6 +8,8 @@
     mais: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
     fechar: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>',
     celular: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="6.5" y="2.5" width="11" height="19" rx="2.5"/><path d="M10.5 18.5h3"/></svg>',
+    sol: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/></svg>',
+    lua: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z"/></svg>',
     sair: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h3.5A2.5 2.5 0 0 1 20 6.5v11a2.5 2.5 0 0 1-2.5 2.5H14"/><path d="M10 16.5 5.5 12 10 7.5M5.5 12H15"/></svg>',
     escudo: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 3.5 5 6v5.5c0 4.2 3 7.6 7 9 4-1.4 7-4.8 7-9V6z"/><path d="m9 12 2 2 4-4" stroke-linecap="round"/></svg>',
     alerta: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4 2.8 19.5h18.4z"/><path d="M12 10v4M12 17v.01"/></svg>',
@@ -143,6 +145,25 @@
         try { await navigator.clipboard.writeText(url); e.target.textContent = 'Copiado'; } catch { e.target.textContent = 'Copie acima'; }
       };
       document.body.appendChild(f);
+    },
+
+    // tema claro/escuro (o <head> de cada página já aplica o salvo antes de desenhar, sem "piscar")
+    tema() { return document.documentElement.dataset.tema === 'claro' ? 'claro' : 'escuro'; },
+    aplicarTema(tema) {
+      if (tema === 'claro') document.documentElement.dataset.tema = 'claro';
+      else delete document.documentElement.dataset.tema;
+      try { localStorage.setItem('tema', tema); } catch (_) { /* modo privado */ }
+      const meta = document.querySelector('meta[name="theme-color"]');
+      if (meta) meta.content = tema === 'claro' ? '#f3f5f8' : '#0b0f14';
+      document.querySelectorAll('[data-botao-tema]').forEach((b) => {
+        b.innerHTML = tema === 'claro' ? ICONES.lua : ICONES.sol;
+        b.title = tema === 'claro' ? 'Tema escuro' : 'Tema claro';
+      });
+    },
+    ligarBotaoTema(botao) {
+      botao.dataset.botaoTema = '';
+      botao.onclick = () => App.aplicarTema(App.tema() === 'claro' ? 'escuro' : 'claro');
+      App.aplicarTema(App.tema());
     },
 
     toast(msg, tipo) {

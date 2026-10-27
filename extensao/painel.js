@@ -236,7 +236,7 @@ async function processar(c, livres) {
   };
   for (const site of ORDEM) {
     const chave = `${site}_status`;
-    if (r[chave] === 'ok' || r[chave] === 'erro' || !livres.includes(site)) continue;   // erro só repete pelo "Reenviar"
+    if (r[chave] === 'ok' || r[chave] === 'erro' || r[chave] === 'pulado' || !livres.includes(site)) continue;   // erro só repete pelo "Reenviar"; pulado = não pedido
     const nome = SITES[site].nome;
     try {
       const arq = await consultarSite(site, c.placa, c.renavam);
@@ -342,6 +342,9 @@ async function cicloUma() {
     campos.status = 'pronta';
     log(`✔ ${c.placa}: consultas prontas.`);
     Mascote.definir('feliz', { temporario: true });
+    // consulta de um site só (passo a passo pelo app): mostra o resultado para a pessoa imprimir
+    const unico = ORDEM.filter((s) => r[`${s}_status`] !== 'pulado');
+    if (unico.length === 1) await trazer(unico[0]).catch(() => {});
   }
   await Central.atualizarConsulta(c.id, campos);
   atualizarNumeros();

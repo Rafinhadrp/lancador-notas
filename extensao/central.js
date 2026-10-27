@@ -81,7 +81,7 @@ const Central = {
   async proximaConsulta(livres) {
     if (!livres.length) return null;
     const params = { user_id: `eq.${Central.cfg.userId}`, status: 'eq.pendente', order: 'id.asc', limit: '1', select: '*' };
-    if (livres.length === 1) params[`${livres[0]}_status`] = 'neq.ok';
+    if (livres.length === 1) params[`${livres[0]}_status`] = 'not.in.(ok,pulado)';
     const fila = await Central.rest('GET', 'consultas', params);
     if (!fila || !fila.length) return null;
     const c = fila[0];

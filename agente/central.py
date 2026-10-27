@@ -182,9 +182,9 @@ class Central:
         params = {"user_id": f"eq.{self.user_id}", "status": "eq.pendente",
                   "order": "id.asc", "limit": "1", "select": "*"}
         if set(sites_livres) == {"detran"}:
-            params["detran_status"] = "neq.ok"
+            params["detran_status"] = "not.in.(ok,pulado)"
         elif set(sites_livres) == {"ipva"}:
-            params["ipva_status"] = "neq.ok"
+            params["ipva_status"] = "not.in.(ok,pulado)"
         fila = self.rest("GET", "consultas", params=params)
         if not fila:
             return None

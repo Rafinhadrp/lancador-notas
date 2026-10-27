@@ -337,7 +337,7 @@ class Consultor:
              "login": [], "fora": []}
         for site in ORDEM:
             chave = f"{site}_status"
-            if r[chave] in ("ok", "erro") or site not in sites_livres:  # erro só repete pelo "Reenviar"
+            if r[chave] in ("ok", "erro", "pulado") or site not in sites_livres:  # erro só repete pelo "Reenviar"
                 continue
             nome = self.sites[site]["nome"]
             try:
