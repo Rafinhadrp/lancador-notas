@@ -130,7 +130,8 @@
     <!-- programa -->
     <section id="secPrograma" class="hidden">
       <div class="cartao pilha">
-        <h2>Programa do PC</h2>
+        <div class="titulo-versao"><h2 style="margin:0">Programa do PC</h2><span class="selo" id="versaoPrograma">…</span></div>
+        <p class="faint" id="novidadesPrograma" style="margin:0;font-size:13px"></p>
         <p class="muted" style="margin:0">Cada pessoa instala no próprio computador e entra com o mesmo usuário do celular. As notas enviadas pelo celular são lançadas no PC dessa pessoa.</p>
         <div id="areaDownload"></div>
         <ol class="muted" style="margin:0;padding-left:20px;line-height:1.9">
@@ -146,10 +147,10 @@
       <div class="cartao pilha com-mascote-lado" style="margin-top:14px">
         <div class="titulo-com-mascote">
           <img class="mascote" src="/assets/mascote/digitando.gif" alt="" width="64" height="64">
-          <div><h2 style="margin:0">Extensão do Chrome · Lançador · Consultas</h2>
+          <div><h2 style="margin:0">Extensão do Chrome · Lançador · Consultas <span class="selo" id="versaoExtensao">…</span></h2>
             <p class="muted" style="margin:2px 0 0">Faz as consultas do <b>Detran</b> e do <b>IPVA</b> e envia os avisos de recibo pelo <b>WhatsApp Web</b>, no Chrome normal de cada pessoa.</p></div>
         </div>
-        <div><a class="btn primario" href="https://github.com/Rafinhadrp/lancador-notas/releases/download/programa/LancadorConsultas.zip" rel="noopener"><span data-icone="download"></span>Baixar a extensão (.zip)</a></div>
+        <div><a class="btn primario" href="https://github.com/Rafinhadrp/lancador-notas/releases/download/programa/LancadorConsultas.zip" rel="noopener"><span data-icone="download"></span>Baixar a extensão (.zip)<span data-ver-ext></span></a></div>
         <ol class="muted" style="margin:0;padding-left:20px;line-height:1.9">
           <li>Baixe o zip, clique com o botão direito → <b>Extrair tudo</b> e guarde a pasta <b>LancadorConsultas</b> num lugar fixo (ex.: Documentos).</li>
           <li>No Chrome, abra <b class="mono">chrome://extensions</b>, ligue <b>Modo do desenvolvedor</b> e clique em <b>Carregar sem compactação</b>. Escolha a pasta.</li>
@@ -174,6 +175,7 @@
   $('#btnCelular').onclick = () => App.abrirCelular().catch((e) => App.toast(e.message, 'erro'));
 
   let usuarios = [];
+  let versoesCarregadas = null;   // /api/versao (para marcar PC com programa desatualizado)
   let notasAtuais = [];
   const mostrar = (id) => ['telaCarregando', 'telaPrimeiro', 'telaLogin', 'telaPainel'].forEach((t) => $('#' + t).classList.toggle('hidden', t !== id));
 
@@ -228,9 +230,18 @@
     mostrar('telaPainel');
     $('#nomeUsuario').textContent = App.perfil.nome;
     $('#enderecoCentral').textContent = location.origin;
-    $('#areaDownload').innerHTML = App.cfg.linkPrograma
-      ? `<a class="btn primario" href="${esc(App.cfg.linkPrograma)}" target="_blank" rel="noopener">${ICONES.download}Baixar o programa (Windows)</a>`
-      : `<div class="aviso info">${ICONES.info}<span>Para mostrar o botão de download aqui, configure a variável <b class="mono">LINK_PROGRAMA</b> no Vercel com o link do .exe (veja o LEIA-ME).</span></div>`;
+    const linkExe = App.cfg.linkPrograma || 'https://github.com/Rafinhadrp/lancador-notas/releases/download/programa/LancadorNotas.exe';
+    $('#areaDownload').innerHTML = `<a class="btn primario" href="${esc(linkExe)}" rel="noopener">${ICONES.download}Baixar o programa (Windows)<span data-ver-prog></span></a>`;
+    App.versoes().then((v) => {
+      $('#versaoPrograma').textContent = v && v.programa ? `versão atual ${v.programa}` : 'versão indisponível';
+      $('#versaoExtensao').textContent = v && v.extensao ? `versão atual ${v.extensao}` : 'versão indisponível';
+      if (v && v.programa) {
+        document.querySelectorAll('[data-ver-prog]').forEach((el) => { el.textContent = ` · v${v.programa}${v.tamanho ? ` · ${Math.round(v.tamanho / 1048576)} MB` : ''}`; });
+        $('#novidadesPrograma').textContent = v.novidades ? `Novidades: ${v.novidades}` : '';
+      }
+      if (v && v.extensao) document.querySelectorAll('[data-ver-ext]').forEach((el) => { el.textContent = ` · v${v.extensao}`; });
+      if (versoesCarregadas !== v) { versoesCarregadas = v; renderEquipe(); }
+    });
     carregarEquipe();
     setInterval(() => { if (!document.hidden && !$('#secEquipe').classList.contains('hidden')) carregarEquipe(); }, 10000);
   }
@@ -254,12 +265,18 @@
     const sel = $('#fPessoa'), atual = sel.value;
     sel.innerHTML = '<option value="">Todos</option>' + usuarios.map((u) => `<option value="${u.id}">${esc(u.nome)}</option>`).join('');
     sel.value = atual;
+    renderEquipe();
+  }
 
+  function renderEquipe() {
+    const atualPC = versoesCarregadas && versoesCarregadas.programa;
     $('#tabelaEquipe').innerHTML = usuarios.map((u) => {
       const est = App.estadoPC(u.agente);
       const eu = u.id === App.perfil.id;
       const protegido = u.dono && !eu;  // conta principal: os outros admins não mexem (o servidor também bloqueia)
-      const visto = u.agente ? `<div class="faint" style="font-size:12px;margin-top:3px">${esc(u.agente.maquina || '')} · visto ${esc(App.quando(u.agente.visto_em))}</div>` : '';
+      const velho = u.agente && u.agente.versao && atualPC && App.versaoMenor(u.agente.versao, atualPC);
+      const ver = u.agente && u.agente.versao ? ` · v${esc(u.agente.versao)}${velho ? ` <span class="selo aviso-versao" title="A versão atual é ${esc(atualPC)}: no PC, clique em Atualizar no Início">desatualizado</span>` : ''}` : '';
+      const visto = u.agente ? `<div class="faint" style="font-size:12px;margin-top:3px">${esc(u.agente.maquina || '')}${ver} · visto ${esc(App.quando(u.agente.visto_em))}</div>` : '';
       return `<tr>
         <td><b>${esc(u.nome)}</b>${u.dono ? '<span class="selo">principal</span>' : u.admin ? '<span class="selo">admin</span>' : ''}${eu ? '<span class="selo cinza">você</span>' : ''}</td>
         <td class="mono">${esc(u.usuario)}</td>

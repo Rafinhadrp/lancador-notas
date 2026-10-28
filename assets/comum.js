@@ -166,6 +166,18 @@
       App.aplicarTema(App.tema());
     },
 
+    // versões atuais do programa e da extensão (/api/versao, uma vez por página)
+    versoes() {
+      if (!App._versoes) App._versoes = fetch('/api/versao').then((r) => (r.ok ? r.json() : null)).catch(() => null);
+      return App._versoes;
+    },
+    // "1.5.3" < "1.5.4"?
+    versaoMenor(a, b) {
+      const pa = String(a || '0').split('.').map((x) => parseInt(x, 10) || 0), pb = String(b || '0').split('.').map((x) => parseInt(x, 10) || 0);
+      for (let i = 0; i < 3; i++) if ((pa[i] || 0) !== (pb[i] || 0)) return (pa[i] || 0) < (pb[i] || 0);
+      return false;
+    },
+
     toast(msg, tipo) {
       let el = document.getElementById('toast');
       if (!el) { el = document.createElement('div'); el.id = 'toast'; el.className = 'toast'; document.body.appendChild(el); }

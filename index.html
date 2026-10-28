@@ -94,7 +94,7 @@
         <button class="btn" id="btnColarLista" type="button"><span data-icone="colar"></span>Colar lista</button>
         <label class="btn" for="inputPlanilha"><span data-icone="lista"></span>Planilha do Autos 360</label>
       </div>
-<p class="dica-extensao">Roda na extensão do Chrome do seu PC. <a href="https://github.com/Rafinhadrp/lancador-notas/releases/download/programa/LancadorConsultas.zip" rel="noopener">Baixar a extensão</a></p>
+<p class="dica-extensao">Roda na extensão do Chrome do seu PC. <a href="https://github.com/Rafinhadrp/lancador-notas/releases/download/programa/LancadorConsultas.zip" rel="noopener">Baixar a extensão<span data-ver-ext></span></a></p>
       <input id="inputCameraRecibo" type="file" accept="image/*" capture="environment">
       <input id="inputGaleriaRecibo" type="file" accept="image/*" multiple>
       <input id="inputPlanilha" type="file" accept=".xls,.xlsx,.csv,.txt,.htm,.html">
@@ -133,7 +133,7 @@
         <label class="btn primario" for="inputCameraContrato"><span data-icone="camera"></span>Tirar foto</label>
         <label class="btn" for="inputGaleriaContrato"><span data-icone="galeria"></span>Galeria</label>
       </div>
-<p class="dica-extensao">As mensagens saem pela extensão do Chrome, no WhatsApp Web do seu PC. <a href="https://github.com/Rafinhadrp/lancador-notas/releases/download/programa/LancadorConsultas.zip" rel="noopener">Baixar a extensão</a></p>
+<p class="dica-extensao">As mensagens saem pela extensão do Chrome, no WhatsApp Web do seu PC. <a href="https://github.com/Rafinhadrp/lancador-notas/releases/download/programa/LancadorConsultas.zip" rel="noopener">Baixar a extensão<span data-ver-ext></span></a></p>
       <input id="inputCameraContrato" type="file" accept="image/*" capture="environment">
       <input id="inputGaleriaContrato" type="file" accept="image/*" multiple>
     </section>
@@ -203,6 +203,7 @@
   $('#btnSair').innerHTML = ICONES.sair;
   $('#btnCelular').innerHTML = ICONES.celular;
   App.ligarBotaoTema($('#btnTema'));
+  App.versoes().then((v) => { if (v && v.extensao) document.querySelectorAll('[data-ver-ext]').forEach((el) => { el.textContent = ` (v${v.extensao})`; }); });
   $('#btnCelular').onclick = () => App.abrirCelular().catch((e) => App.toast(e.message, 'erro'));
   $('#linkCelular').onclick = (e) => { e.preventDefault(); App.abrirCelular().catch((er) => App.toast(er.message, 'erro')); };
   $('#btnAdmin').innerHTML = ICONES.escudo;

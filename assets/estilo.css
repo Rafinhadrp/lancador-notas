@@ -410,3 +410,7 @@ td.acoes { white-space: nowrap; text-align: right; }
 
 /* no tema claro a logo branca some: escurece */
 :root[data-tema="claro"] .marca img, :root[data-tema="claro"] .logo-mini { filter: invert(1) hue-rotate(180deg); }
+
+/* versões na aba Downloads */
+.titulo-versao { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.selo.aviso-versao { background: var(--warn-soft); color: var(--warn); margin-left: 4px; }

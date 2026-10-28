@@ -16,6 +16,7 @@ A equipe fotografa no celular notas de oficinas e autopeças. O Claude lê a not
   - `admin.js`: gerencia usuários com a chave secreta (inclui `primeiro_admin`).
   - `ler-recibo.js`: lê placa e Renavam da foto do recibo (tool use `registrar_veiculos`, aceita vários veículos) e valida o dígito do Renavam.
   - `ler-contrato.js`: lê do contrato o comprador (nome), telefones (normaliza para 55+DDD+número, descarta o da Autoforte 1633335399) e só o modelo do carro (`soModelo`: tira marca/versão, ex.: "VW/VOYAGE 1.6" → "Voyage").
+  - `versao.js`: lê o `versao.json` da release `programa` (cache de 5 min) e devolve as versões atuais do programa e da extensão. O admin mostra na aba Downloads (selo "versão atual", botões com a versão e o tamanho, novidades) e na Equipe marca "desatualizado" no PC com versão menor (`agentes.versao`); o app mostra a versão no link "Baixar a extensão" (`App.versoes()` / `App.versaoMenor()`).
   - `config.js`: devolve a URL e a chave anon do Supabase e o `LINK_PROGRAMA`.
   - `_lib.js`: funções compartilhadas.
 - `supabase/schema.sql`: tabelas `perfis`, `notas` (status: pendente → lancando → lancada/erro/cancelada), `consultas` (pendente → consultando → pronta/erro/cancelada, com `detran_status`/`ipva_status` ''/ok/erro) e `agentes` (batimento do PC), com RLS. Cada usuário vê só as próprias notas; o admin vê todas. É idempotente.
