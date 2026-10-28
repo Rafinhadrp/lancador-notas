@@ -47,7 +47,10 @@ const Central = {
     const d = await r.json().catch(() => ({}));
     if (!r.ok) {
       const msg = d.error_description || d.msg || d.error || '';
-      if (/invalid/i.test(msg)) throw new Error(grant === 'password' ? 'Usuário ou senha incorretos.' : 'Sessão expirada. Entre de novo.');
+      if (grant === 'refresh_token' && (/invalid|not found|revoked|already used/i.test(msg) || r.status === 400)) {
+        throw Object.assign(new Error('A sessão expirou. Entre de novo com o seu usuário.'), { sessao: true });
+      }
+      if (/invalid/i.test(msg)) throw new Error('Usuário ou senha incorretos.');
       if (/banned/i.test(msg)) throw new Error('Usuário desativado. Fale com o administrador.');
       throw new Error(msg || 'Falha no login.');
     }
@@ -58,11 +61,32 @@ const Central = {
     await Central.guardar();
   },
 
+  // Renova o acesso UMA vez por vez: o Supabase troca o refresh token a cada uso e derruba a sessão
+  // se o mesmo token for usado duas vezes (dois pedidos ao mesmo tempo, ou dois painéis abertos).
+  _renovando: null,
+  renovar() {
+    if (!Central._renovando) {
+      const tarefa = async () => {
+        const { conta } = await chrome.storage.local.get('conta');
+        const c = Central.cfg;
+        // outro painel (ou pedido) já renovou: usa o que ficou guardado
+        if (conta && conta.refresh && conta.refresh !== c.refresh) {
+          Object.assign(c, conta);
+          if (c.access && Date.now() < c.expira) return;
+        }
+        await Central._auth('refresh_token', { refresh_token: c.refresh });
+      };
+      const comTrava = navigator.locks ? () => navigator.locks.request('lancador-renovar-sessao', tarefa) : tarefa;
+      Central._renovando = comTrava().finally(() => { Central._renovando = null; });
+    }
+    return Central._renovando;
+  },
+
   async rest(metodo, tabela, params = {}, corpo = null, prefer = null) {
     const c = Central.cfg;
     if (!c) throw new Error('Entre com o seu usuário.');
     for (let tentativa = 1; tentativa <= 2; tentativa++) {
-      if (!c.access || Date.now() > c.expira) await Central._auth('refresh_token', { refresh_token: c.refresh });
+      if (!c.access || Date.now() > c.expira) await Central.renovar();
       const url = `${c.sbUrl}/rest/v1/${tabela}?` + new URLSearchParams(params);
       const h = { apikey: c.anon, Authorization: `Bearer ${c.access}`, 'Content-Type': 'application/json' };
       if (prefer) h.Prefer = prefer;

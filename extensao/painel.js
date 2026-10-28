@@ -477,11 +477,28 @@ async function laco() {
       if (!fez) { mostrarStatusLivre(); await pausa(3000); }
     } catch (e) {
       if (e instanceof Parado) { estado.pular = false; continue; }
+      if (e.sessao) { await pedirLoginDeNovo(e.message); return; }
       status('Sem conexão', e.message, 'erro');
       log(`✖ ${e.message}`);
       await pausa(5000);
     }
   }
+}
+
+// sessão derrubada pelo Supabase: para tudo e volta para a tela de entrar (em vez de repetir o erro sem parar)
+async function pedirLoginDeNovo(msg) {
+  estado.rodando = false;
+  log(`✖ ${msg}`);
+  const central = Central.cfg ? Central.cfg.central : '';
+  await Central.sair();
+  status('Entre de novo', msg, 'erro');
+  bip();
+  chrome.notifications.create({ type: 'basic', iconUrl: 'icones/128.png', title: 'Lançador · Consultas', message: msg });
+  $('#telaPrincipal').hidden = true;
+  $('#telaLogin').hidden = false;
+  $('#lgCentral').value = (central || 'lancador-notas-agente-three.vercel.app').replace(/^https?:\/\//, '');
+  $('#erroLogin').textContent = msg;
+  $('#lgUsuario').focus();
 }
 
 // ------------------------------------------------------------------ versão nova da extensão
@@ -554,6 +571,16 @@ $('#btnAbrirPasta').onclick = () => chrome.downloads.showDefaultFolder();
 $('#versao').textContent = 'v' + VERSAO;
 
 (async () => {
+  try {
+    const eu = await chrome.tabs.getCurrent();
+    const outros = (await chrome.tabs.query({ url: chrome.runtime.getURL('painel.html') })).filter((t) => !eu || t.id !== eu.id);
+    if (outros.length) {
+      await chrome.tabs.update(outros[0].id, { active: true });
+      await chrome.windows.update(outros[0].windowId, { focused: true }).catch(() => {});
+      if (eu) chrome.tabs.remove(eu.id);
+      return;
+    }
+  } catch (_) { /* segue */ }
   const { sitesTeste } = await chrome.storage.local.get('sitesTeste');   // só nos testes automáticos
   if (sitesTeste) for (const k of Object.keys(sitesTeste)) { if (k === 'whatsUrl') WHATS_URL = sitesTeste[k]; else Object.assign(SITES[k], sitesTeste[k]); }
   if (await Central.carregar()) {
